@@ -1,0 +1,49 @@
+# Optional: a self-contained local stack with real Postgres (not Supabase).
+# For the production setup, point DATABASE_URL/Supabase vars at your project
+# instead and run only the `app` service (or deploy the image to a host).
+#
+#   docker compose up --build
+#   # then apply migrations once:
+#   docker compose exec -T db psql -U postgres -d foxtales < db/0001_init.sql
+#   # (0002_rls.sql references Supabase auth.uid()/auth.users and is for Supabase)
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: foxtales
+    ports: ["5432:5432"]
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      PORT: "8080"
+      PUBLIC_BASE_URL: http://localhost:8080
+      DB_DRIVER: postgres
+      DATABASE_URL: postgres://postgres:postgres@db:5432/foxtales
+      STORAGE_DRIVER: local
+      LOCAL_MEDIA_DIR: /data/media
+      LOCAL_SIGNING_SECRET: change-me
+      # Dev-only: lets you exercise /api without Supabase tokens.
+      DEV_BYPASS_AUTH: "true"
+      TRUST_PROXY: "1"
+    ports: ["8080:8080"]
+    volumes:
+      - media:/data/media
+
+volumes:
+  dbdata:
+  media:

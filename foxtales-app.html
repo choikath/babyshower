@@ -284,6 +284,56 @@
 
   /* toast */
   .toast{border-radius:3px;font-family:'Jost',sans-serif;font-weight:500;letter-spacing:.05em;font-size:.8rem;background:var(--ink);box-shadow:0 10px 30px rgba(38,35,30,.25)}
+
+/* ===================== guided read-along (karaoke) ===================== */
+.kchoose{display:flex;flex-direction:column;gap:12px;max-width:470px;margin:16px auto 0;width:100%}
+.kcard{display:flex;gap:15px;align-items:flex-start;text-align:left;border:1px solid #D8D2C4;border-radius:4px;background:#fff;padding:17px 18px;cursor:pointer;transition:border-color .2s,box-shadow .2s,transform .12s}
+.kcard:hover{border-color:#A88A5C;box-shadow:0 8px 26px rgba(38,35,30,.09);transform:translateY(-1px)}
+.kcard .kic{flex:0 0 auto;width:48px;height:48px;border:1px solid #E5E0D5;border-radius:50%;display:grid;place-items:center;background:#FAF7F0}
+.kcard h3{font-family:'Cormorant Garamond',Georgia,serif;font-weight:600;font-size:1.32rem;margin-bottom:3px;line-height:1.2}
+.kcard p{color:var(--muted);font-weight:400;font-size:.9rem;line-height:1.46}
+.kbadge{display:inline-block;margin-left:6px;background:#A88A5C;color:#fff;font-family:'Jost',sans-serif;font-weight:500;letter-spacing:.1em;text-transform:uppercase;font-size:.55rem;padding:2px 7px;border-radius:2px;vertical-align:middle}
+.kprog{display:flex;flex-direction:column;align-items:center;gap:9px;margin-bottom:4px}
+.kprog .klabel{font-family:'Jost',sans-serif;font-weight:500;letter-spacing:.16em;text-transform:uppercase;font-size:.66rem;color:var(--muted)}
+.kdots{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.kdot{width:7px;height:7px;border-radius:50%;background:#E2DCCF;transition:background .25s,transform .25s}
+.kdot.done{background:#A88A5C}
+.kdot.on{background:#26231E;transform:scale(1.45)}
+.kpagewrap{background:#FAF7F0;border:1px solid #E5E0D5;border-radius:4px;padding:24px 24px;margin:10px auto 0;max-width:540px;width:100%}
+.kpage{font-family:'Cormorant Garamond',Georgia,serif;font-size:1.5rem;line-height:1.72;color:#26231E;text-align:left}
+.kline{margin-bottom:11px}
+.kline:last-child{margin-bottom:0}
+.kw{color:#CDC6B6;transition:color .2s ease}
+.kw.lit{color:#26231E}
+.kw.next{box-shadow:inset 0 -0.13em 0 rgba(168,138,92,.5)}
+.kpageimg{display:block;width:auto;max-width:300px;max-height:300px;margin:0 auto 16px;mix-blend-mode:multiply}
+.kpick{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;max-width:560px;margin:16px auto 0;width:100%}
+.kpickcard{display:flex;flex-direction:column;align-items:stretch;text-align:center;border:1px solid #D8D2C4;border-radius:5px;background:#fff;padding:14px 14px 16px;cursor:pointer;transition:border-color .2s,box-shadow .2s,transform .12s;font:inherit;color:inherit}
+.kpickcard:hover{border-color:#A88A5C;box-shadow:0 10px 28px rgba(38,35,30,.1);transform:translateY(-2px)}
+.kpickart{height:150px;display:grid;place-items:center;margin-bottom:10px}
+.kpickart img{max-width:100%;max-height:150px;mix-blend-mode:multiply}
+.kpickmeta{display:flex;flex-direction:column;gap:3px}
+.kpicktitle{font-family:'Cormorant Garamond',Georgia,serif;font-weight:600;font-size:1.18rem;line-height:1.18;color:#26231E}
+.kpicksub{font-family:'Jost',sans-serif;font-size:.72rem;letter-spacing:.04em;color:var(--muted)}
+.kdthumb{width:36px;height:36px;object-fit:contain;mix-blend-mode:multiply;flex:0 0 auto}
+.khear{margin:18px auto 0;display:inline-flex;align-items:center;gap:8px;background:var(--ink);color:#FBFAF7;border:none;border-radius:30px;padding:14px 30px;font-family:'Jost',sans-serif;font-weight:500;letter-spacing:.14em;text-transform:uppercase;font-size:12px;cursor:pointer;transition:background .2s}
+.khear:hover{background:#3B372F}
+.khear.on{background:#8F7344}
+.kconfirmrow{display:flex;gap:10px;justify-content:center;margin-top:18px;flex-wrap:wrap}
+.kbtn-redo{background:transparent;color:var(--ink);border:1px solid #D8D2C4;border-radius:2px;padding:14px 26px;font-family:'Jost',sans-serif;font-weight:500;letter-spacing:.14em;text-transform:uppercase;font-size:12px;cursor:pointer;transition:background .2s}
+.kbtn-redo:hover{background:#F3ECE0}
+.kbtn-confirm{background:var(--ink);color:#FBFAF7;border:1px solid var(--ink);border-radius:2px;padding:14px 32px;font-family:'Jost',sans-serif;font-weight:500;letter-spacing:.14em;text-transform:uppercase;font-size:12px;cursor:pointer;transition:background .2s}
+.kbtn-confirm:hover{background:#3B372F}
+.kfoot{margin-top:20px;display:flex;gap:20px;justify-content:center;align-items:center;flex-wrap:wrap}
+.klink{background:none;border:none;color:#8F7344;font-family:'Jost',sans-serif;font-weight:500;letter-spacing:.1em;text-transform:uppercase;font-size:.66rem;cursor:pointer;text-decoration:underline;text-underline-offset:3px;padding:4px}
+.khint-asr{font-size:.82rem;color:var(--muted);font-weight:400;margin-top:12px;max-width:420px;margin-left:auto;margin-right:auto}
+.kdone-head{font-family:'Cormorant Garamond',Georgia,serif;font-size:1.7rem;color:#26231E;margin:6px 0 2px}
+.kdone-list{max-width:470px;margin:12px auto 0;width:100%;text-align:left}
+.kdone-row{display:flex;align-items:center;gap:11px;border:1px solid #E5E0D5;border-radius:3px;background:#FAF7F0;padding:9px 12px;margin-bottom:7px}
+.kdone-row .kn{width:25px;height:25px;border-radius:50%;background:#A88A5C;color:#fff;font-family:'Jost',sans-serif;font-weight:500;font-size:.74rem;display:grid;place-items:center;flex:0 0 auto}
+.kdone-row .ktxt{flex:1;min-width:0;font-family:'Cormorant Garamond',Georgia,serif;font-size:1.02rem;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kimgfallback{font-size:2.4rem;line-height:1;opacity:.5;display:grid;place-items:center;width:100%;height:100%}
+
 </style>
 </head>
 <body>
@@ -396,7 +446,7 @@ async function updateResumeBar(){
 async function resumeDraft(){
   const raw=await dbGetP(DRAFTK); if(!raw){toast('Draft not found');return;}
   let d;try{d=JSON.parse(raw);}catch(e){toast('Draft not found');return;}
-  draft=Object.assign({title:'',author:'',name:'',note:'',practice:null,intro:null,story:[],outro:null,chime:'sfx:page_turn'},d.draft||{});
+  draft=Object.assign({title:'',author:'',name:'',note:'',practice:null,intro:null,story:[],outro:null,chime:'sfx:page_turn',storyMode:null,storyId:null},d.draft||{});
   if(!Array.isArray(draft.story))draft.story=draft.story?[draft.story]:[];
   draft.story.forEach(function(pp){if(!pp.k)pp.k='t'+Date.now()+Math.floor(Math.random()*9999);});
   wizStep=Math.min(4,Math.max(1,(typeof d.wizStep==='number')?d.wizStep:2));
@@ -419,13 +469,13 @@ function showView(v){
   document.getElementById('topbar').classList.toggle('hidden',rec);
   document.getElementById('view-parent').classList.toggle('hidden',rec);
   document.getElementById('view-record').classList.toggle('hidden',!rec);
-  if(!rec){stopRec();stopAll();saveDraftNow();if(wasRec&&draftHasContent())toast('Draft saved \u2014 resume anytime');renderAll();}
+  if(!rec){stopRec();stopAll();stopGuided();stopMic();saveDraftNow();if(wasRec&&draftHasContent())toast('Draft saved \u2014 resume anytime');renderAll();}
   window.scrollTo({top:0,behavior:'auto'});
 }
 async function startFlow(){
   const raw=await dbGetP(DRAFTK);
   if(raw){try{const d=JSON.parse(raw);if(storedDraftHasContent(d)){resumeDraft();return;}}catch(e){}}
-  draft={title:'',author:'',name:'',note:'',practice:null,intro:null,story:[],outro:null,chime:'sfx:page_turn'};
+  draft={title:'',author:'',name:'',note:'',practice:null,intro:null,story:[],outro:null,chime:'sfx:page_turn',storyMode:null,storyId:null};
   wizStep=0;lastDir=1;showView('record');renderWizard();
 }
 
@@ -440,7 +490,7 @@ function copyLink(){const t=document.getElementById('linkText').textContent;navi
 const STAGES=['practice','intro','story','outro','finish'];
 const LABELS=['Practice','Intro','Story','The End','Finish'];
 let wizStep=0,lastDir=1,lastTrack=null;
-let draft={title:'',author:'',name:'',note:'',practice:null,intro:null,story:[],outro:null,chime:'sfx:page_turn'};
+let draft={title:'',author:'',name:'',note:'',practice:null,intro:null,story:[],outro:null,chime:'sfx:page_turn',storyMode:null,storyId:null};
 let childNameCache='your little one';
 
 const CHIMES=[
@@ -477,7 +527,7 @@ function renderWizard(){
   else inner=stepFinish();
   document.getElementById('stage').innerHTML=`<div class="screen ${lastDir<0?'back':''}">${inner}</div>`;
   if(stg==='intro') updateScript();
-  if(stg==='story') updatePartsUI();
+  if(stg==='story'){ if(draft.storyMode==='guided') guidedMount(); else if(draft.storyMode==='free') updatePartsUI(); }
   saveDraftSoon();
 }
 
@@ -617,6 +667,11 @@ function stepIntro(){
   ${actions(true,false)}`;
 }
 function stepStory(){
+  if(!draft.storyMode) return storyModeChooser();
+  if(draft.storyMode==='guided') return guidedReader();
+  return stepStoryFree();
+}
+function stepStoryFree(){
   const grid=CHIMES.map(function(c){const spec=(c.kind==='sfx'?'sfx:':'synth:')+(c.key||c.id);return `<button class="schip ${draft.chime===spec?'sel':''}" onclick="pickChime('${spec}',this)">${c.e} ${c.label}</button>`;}).join('')+`<button class="schip ${draft.chime?'':'sel'}" onclick="pickChime('',this)">\uD83D\uDEAB No sound</button>`;
   return `${ILLO.story}<h2>The story</h2>
   <p class="lede">Read a page or two at a time, and <b>tap stop at each page turn</b>. Every part can be replayed, re-recorded, or reordered \u2014 no need for one perfect take!</p>
@@ -666,7 +721,7 @@ function stepFinish(){
 
 function updateScript(){const el=document.getElementById('scriptBox');if(el)el.innerHTML=introScriptText();saveDraftSoon();}
 function noteInput(el){var w=el.value.trim()?el.value.trim().split(/\s+/).filter(Boolean):[];if(w.length>100){w=w.slice(0,100);el.value=w.join(' ');}draft.note=el.value;var c=document.getElementById('noteCount');if(c){c.textContent=w.length+' / 100 words';c.style.color=w.length>=100?'var(--coral)':'var(--muted)';}saveDraftSoon();}
-function goStep(n){if(n<0)return;stopRec();stopAll();lastDir=(n<wizStep)?-1:1;wizStep=Math.min(4,Math.max(0,n));renderWizard();}
+function goStep(n){if(n<0)return;stopRec();stopAll();stopGuided();lastDir=(n<wizStep)?-1:1;wizStep=Math.min(4,Math.max(0,n));renderWizard();}
 function nextStep(){
   if(STAGES[wizStep]==='story' && !draft.story.length){toast('Record at least one part first');return;}
   if(STAGES[wizStep]==='practice'){stopRec();stopAll();lastDir=1;wizStep=1;rockAndRoll();return;}
@@ -979,7 +1034,7 @@ async function finishAndUpload(){
   idx.items.unshift({id,from,book:(draft.title||'').trim(),author:(draft.author||'').trim(),note:note,title:draft.title?('\u201C'+draft.title+'\u201D'):'Bedtime story',date:Date.now(),inBedtime:false,audioId:id,ext:result.ext,includes,bytes:result.blob.size});
   await setIndex(idx);
   lastTrack={id:id,ext:result.ext,book:(draft.title||'').trim(),from:from,parts:np,secs:result.secs||0};
-  draft={title:'',author:'',name:'',note:'',practice:null,intro:null,story:[],outro:null,chime:'sfx:page_turn'};
+  draft={title:'',author:'',name:'',note:'',practice:null,intro:null,story:[],outro:null,chime:'sfx:page_turn',storyMode:null,storyId:null};
   clearDraftStore();
   flyAway();
 }
@@ -1046,6 +1101,444 @@ async function playBedtime(){
     const s=c.createBufferSource();s.buffer=buf;s.connect(c.destination);s.onended=function(){i++;next();};s.start();waSrc=s;waKey='bt';toast('Playing: '+(it.from||'story'));
   };
   next();
+}
+
+
+/* ---------- guided read-along: shared mic + image fallback helpers ---------- */
+let micStream=null;
+async function getMic(){if(micStream){var tr=micStream.getAudioTracks()[0];if(tr&&tr.readyState==='live')return micStream;}micStream=await navigator.mediaDevices.getUserMedia({audio:true});return micStream;}
+function stopMic(){if(micStream){try{micStream.getTracks().forEach(function(t){t.stop();});}catch(e){}micStream=null;}}
+/* sandbox has no bundled story art — swap broken page images for a quiet book glyph */
+function kImgErr(img){try{const s=document.createElement('span');s.className='kimgfallback';s.textContent='📖';img.replaceWith(s);}catch(e){try{img.style.display='none';}catch(_){}}}
+/* ====================================================================
+   GUIDED READ-ALONG ("karaoke") — paged story, live word-lighting via ASR
+   - Web Speech API (free, on-device-ish) drives the highlight in this demo.
+   - MediaRecorder captures the real audio in parallel (Web Speech gives no file).
+   - Each confirmed page becomes a normal draft.story part (with a .page tag),
+     so preview / merge / upload downstream are unchanged.
+==================================================================== */
+const SAMPLE_STORIES=[
+  {id:'peter-rabbit',title:'The Tale of Peter Rabbit',author:'Beatrix Potter',pages:[
+   {img:'assets/stories/peter-rabbit/peter08.jpg',text:`Once upon a time there were four little Rabbits, and their names were—
+Flopsy, Mopsy, Cotton-tail, and Peter.`},
+   {img:'assets/stories/peter-rabbit/peter11.jpg',text:`They lived with their Mother in a sand-bank, underneath the root of a very big fir-tree.`},
+   {img:'assets/stories/peter-rabbit/peter12.jpg',text:`'Now my dears,' said old Mrs. Rabbit one morning, 'you may go into the fields or down the lane, but don't go into Mr. McGregor's garden: your Father had an accident there; he was put in a pie by Mrs. McGregor.'`},
+   {img:'assets/stories/peter-rabbit/peter15.jpg',text:`'Now run along, and don't get into mischief. I am going out.'`},
+   {img:'assets/stories/peter-rabbit/peter16.jpg',text:`Then old Mrs. Rabbit took a basket and her umbrella, and went through the wood to the baker's. She bought a loaf of brown bread and five currant buns.`},
+   {img:'assets/stories/peter-rabbit/peter19.jpg',text:`Flopsy, Mopsy, and Cotton-tail, who were good little bunnies, went down the lane to gather blackberries:`},
+   {img:'assets/stories/peter-rabbit/peter20.jpg',text:`But Peter, who was very naughty, ran straight away to Mr. McGregor's garden, and squeezed under the gate!`},
+   {img:'assets/stories/peter-rabbit/peter23.jpg',text:`First he ate some lettuces and some French beans; and then he ate some radishes;`},
+   {img:'assets/stories/peter-rabbit/peter24.jpg',text:`And then, feeling rather sick, he went to look for some parsley.`},
+   {img:'assets/stories/peter-rabbit/peter27.jpg',text:`But round the end of a cucumber frame, whom should he meet but Mr. McGregor!`},
+   {img:'assets/stories/peter-rabbit/peter28.jpg',text:`Mr. McGregor was on his hands and knees planting out young cabbages, but he jumped up and ran after Peter, waving a rake and calling out, 'Stop thief!'`},
+   {img:'assets/stories/peter-rabbit/peter31.jpg',text:`Peter was most dreadfully frightened; he rushed all over the garden, for he had forgotten the way back to the gate.
+He lost one of his shoes among the cabbages, and the other shoe amongst the potatoes.`},
+   {img:'assets/stories/peter-rabbit/peter32.jpg',text:`After losing them, he ran on four legs and went faster, so that I think he might have got away altogether if he had not unfortunately run into a gooseberry net, and got caught by the large buttons on his jacket. It was a blue jacket with brass buttons, quite new.`},
+   {img:'assets/stories/peter-rabbit/peter35.jpg',text:`Peter gave himself up for lost, and shed big tears; but his sobs were overheard by some friendly sparrows, who flew to him in great excitement, and implored him to exert himself.`},
+   {img:'assets/stories/peter-rabbit/peter36.jpg',text:`Mr. McGregor came up with a sieve, which he intended to pop upon the top of Peter; but Peter wriggled out just in time, leaving his jacket behind him.`},
+   {img:'assets/stories/peter-rabbit/peter39.jpg',text:`And rushed into the tool-shed, and jumped into a can. It would have been a beautiful thing to hide in, if it had not had so much water in it.`},
+   {img:'assets/stories/peter-rabbit/peter40.jpg',text:`Mr. McGregor was quite sure that Peter was somewhere in the tool-shed, perhaps hidden underneath a flower-pot. He began to turn them over carefully, looking under each.
+Presently Peter sneezed—'Kertyschoo!' Mr. McGregor was after him in no time.`},
+   {img:'assets/stories/peter-rabbit/peter43.jpg',text:`And tried to put his foot upon Peter, who jumped out of a window, upsetting three plants. The window was too small for Mr. McGregor, and he was tired of running after Peter. He went back to his work.`},
+   {img:'assets/stories/peter-rabbit/peter44.jpg',text:`Peter sat down to rest; he was out of breath and trembling with fright, and he had not the least idea which way to go. Also he was very damp with sitting in that can.
+After a time he began to wander about, going lippity—lippity—not very fast, and looking all round.`},
+   {img:'assets/stories/peter-rabbit/peter47.jpg',text:`He found a door in a wall; but it was locked, and there was no room for a fat little rabbit to squeeze underneath.
+An old mouse was running in and out over the stone doorstep, carrying peas and beans to her family in the wood. Peter asked her the way to the gate, but she had such a large pea in her mouth that she could not answer. She only shook her head at him. Peter began to cry.`},
+   {img:'assets/stories/peter-rabbit/peter48.jpg',text:`Then he tried to find his way straight across the garden, but he became more and more puzzled. Presently, he came to a pond where Mr. McGregor filled his water-cans. A white cat was staring at some gold-fish, she sat very, very still, but now and then the tip of her tail twitched as if it were alive. Peter thought it best to go away without speaking to her; he had heard about cats from his cousin, little Benjamin Bunny.`},
+   {img:'assets/stories/peter-rabbit/peter51.jpg',text:`He went back towards the tool-shed, but suddenly, quite close to him, he heard the noise of a hoe—scr-r-ritch, scratch, scratch, scritch. Peter scuttered underneath the bushes. But presently, as nothing happened, he came out, and climbed upon a wheelbarrow and peeped over. The first thing he saw was Mr. McGregor hoeing onions. His back was turned towards Peter, and beyond him was the gate!`},
+   {img:'assets/stories/peter-rabbit/peter52.jpg',text:`Peter got down very quietly off the wheelbarrow; and started running as fast as he could go, along a straight walk behind some black-currant bushes.
+Mr. McGregor caught sight of him at the corner, but Peter did not care. He slipped underneath the gate, and was safe at last in the wood outside the garden.`},
+   {img:'assets/stories/peter-rabbit/peter55.jpg',text:`Mr. McGregor hung up the little jacket and the shoes for a scare-crow to frighten the blackbirds.
+Peter never stopped running or looked behind him till he got home to the big fir-tree.`},
+   {img:'assets/stories/peter-rabbit/peter57.jpg',text:`He was so tired that he flopped down upon the nice soft sand on the floor of the rabbit-hole and shut his eyes. His mother was busy cooking; she wondered what he had done with his clothes. It was the second little jacket and pair of shoes that Peter had lost in a fortnight!`},
+   {img:'assets/stories/peter-rabbit/peter58.jpg',text:`I am sorry to say that Peter was not very well during the evening.
+His mother put him to bed, and made some camomile tea; and she gave a dose of it to Peter!
+'One table-spoonful to be taken at bed-time.'
+But Flopsy, Mopsy, and Cotton-tail had bread and milk and blackberries for supper.`},
+  ]},
+  {id:'jeremy-fisher',title:'The Tale of Mr. Jeremy Fisher',author:'Beatrix Potter',pages:[
+   {img:'assets/stories/jeremy-fisher/jf04.jpg',text:`Once upon a time there was a frog called Mr. Jeremy Fisher; he lived in a little damp house amongst the buttercups at the edge of a pond.`},
+   {img:'assets/stories/jeremy-fisher/jf05.jpg',text:`The water was all slippy-sloppy in the larder and in the back passage.
+But Mr. Jeremy liked getting his feet wet; nobody ever scolded him, and he never caught a cold!`},
+   {img:'assets/stories/jeremy-fisher/jf06.jpg',text:`He was quite pleased when he looked out and saw large drops of rain, splashing in the pond—`},
+   {img:'assets/stories/jeremy-fisher/jf07.jpg',text:`"I will get some worms and go fishing and catch a dish of minnows for my dinner," said Mr. Jeremy Fisher. "If I catch more than five fish, I will invite my friends Mr. Alderman Ptolemy Tortoise and Sir Isaac Newton. The Alderman, however, eats salad."`},
+   {img:'assets/stories/jeremy-fisher/jf08.jpg',text:`Mr. Jeremy put on a macintosh, and a pair of shiny goloshes; he took his rod and basket, and set off with enormous hops to the place where he kept his boat.`},
+   {img:'assets/stories/jeremy-fisher/jf09.jpg',text:`The boat was round and green, and very like the other lily-leaves. It was tied to a water-plant in the middle of the pond.`},
+   {img:'assets/stories/jeremy-fisher/jf10.jpg',text:`Mr. Jeremy took a reed pole, and pushed the boat out into open water. "I know a good place for minnows," said Mr. Jeremy Fisher.`},
+   {img:'assets/stories/jeremy-fisher/jf11.jpg',text:`Mr. Jeremy stuck his pole into the mud and fastened the boat to it.
+Then he settled himself cross-legged and arranged his fishing tackle. He had the dearest little red float. His rod was a tough stalk of grass, his line was a fine long white horse-hair, and he tied a little wriggling worm at the end.`},
+   {img:'assets/stories/jeremy-fisher/jf12.jpg',text:`The rain trickled down his back, and for nearly an hour he stared at the float.`},
+   {img:'assets/stories/jeremy-fisher/jf13.jpg',text:`"This is getting tiresome, I think I should like some lunch," said Mr. Jeremy Fisher.
+He punted back again amongst the water-plants, and took some lunch out of his basket.
+"I will eat a butterfly sandwich, and wait till the shower is over," said Mr. Jeremy Fisher.`},
+   {img:'assets/stories/jeremy-fisher/jf14.jpg',text:`A great big water-beetle came up underneath the lily leaf and tweaked the toe of one of his goloshes.
+Mr. Jeremy crossed his legs up shorter, out of reach, and went on eating his sandwich.`},
+   {img:'assets/stories/jeremy-fisher/jf15.jpg',text:`Once or twice something moved about with a rustle and a splash amongst the rushes at the side of the pond.
+"I trust that is not a rat," said Mr. Jeremy Fisher; "I think I had better get away from here."`},
+   {img:'assets/stories/jeremy-fisher/jf16.jpg',text:`Mr. Jeremy shoved the boat out again a little way, and dropped in the bait. There was a bite almost directly; the float gave a tremendous bobbit!
+"A minnow! a minnow! I have him by the nose!" cried Mr. Jeremy Fisher, jerking up his rod.`},
+   {img:'assets/stories/jeremy-fisher/jf17.jpg',text:`But what a horrible surprise! Instead of a smooth fat minnow, Mr. Jeremy landed little Jack Sharp the stickleback, covered with spines!`},
+   {img:'assets/stories/jeremy-fisher/jf18.jpg',text:`The stickleback floundered about the boat, pricking and snapping until he was quite out of breath. Then he jumped back into the water.`},
+   {img:'assets/stories/jeremy-fisher/jf19.jpg',text:`And a shoal of other little fishes put their heads out, and laughed at Mr. Jeremy Fisher.`},
+   {img:'assets/stories/jeremy-fisher/jf20.jpg',text:`And while Mr. Jeremy sat disconsolately on the edge of his boat—sucking his sore fingers and peering down into the water—a much worse thing happened; a really frightful thing it would have been, if Mr. Jeremy had not been wearing a macintosh!`},
+   {img:'assets/stories/jeremy-fisher/jf21.jpg',text:`A great big enormous trout came up—ker-pflop-p-p-p! with a splash—and it seized Mr. Jeremy with a snap, "Ow! Ow! Ow!"—and then it turned and dived down to the bottom of the pond!`},
+   {img:'assets/stories/jeremy-fisher/jf22.jpg',text:`But the trout was so displeased with the taste of the macintosh, that in less than half a minute it spat him out again; and the only thing it swallowed was Mr. Jeremy's goloshes.`},
+   {img:'assets/stories/jeremy-fisher/jf23.jpg',text:`Mr. Jeremy bounced up to the surface of the water, like a cork and the bubbles out of a soda water bottle; and he swam with all his might to the edge of the pond.`},
+   {img:'assets/stories/jeremy-fisher/jf24.jpg',text:`He scrambled out on the first bank he came to, and he hopped home across the meadow with his macintosh all in tatters.`},
+   {img:'assets/stories/jeremy-fisher/jf25.jpg',text:`"What a mercy that was not a pike!" said Mr. Jeremy Fisher. "I have lost my rod and basket; but it does not much matter, for I am sure I should never have dared to go fishing again!"`},
+   {img:'assets/stories/jeremy-fisher/jf26.jpg',text:`He put some sticking plaster on his fingers, and his friends both came to dinner. He could not offer them fish, but he had something else in his larder.`},
+   {img:'assets/stories/jeremy-fisher/jf27.jpg',text:`Sir Isaac Newton wore his black and gold waistcoat,`},
+   {img:'assets/stories/jeremy-fisher/jf28.jpg',text:`And Mr. Alderman Ptolemy Tortoise brought a salad with him in a string bag.`},
+   {img:'assets/stories/jeremy-fisher/jf29.jpg',text:`And instead of a nice dish of minnows—they had a roasted grasshopper with lady-bird sauce; which frogs consider a beautiful treat; but I think it must have been nasty!`},
+  ]},
+  {id:'tom-kitten',title:'The Tale of Tom Kitten',author:'Beatrix Potter',pages:[
+   {img:'assets/stories/tom-kitten/tom08.jpg',text:`Once upon a time there were three little kittens, and their names were Mittens, Tom Kitten, and Moppet.
+They had dear little fur coats of their own; and they tumbled about the doorstep and played in the dust.
+But one day their mother—Mrs. Tabitha Twitchit—expected friends to tea; so she fetched the kittens indoors, to wash and dress them, before the fine company arrived.`},
+   {img:'assets/stories/tom-kitten/tom11.jpg',text:`First she scrubbed their faces (this one is Moppet).`},
+   {img:'assets/stories/tom-kitten/tom12.jpg',text:`Then she brushed their fur, (this one is Mittens).`},
+   {img:'assets/stories/tom-kitten/tom15.jpg',text:`Then she combed their tails and whiskers (this is Tom Kitten).`},
+   {img:'assets/stories/tom-kitten/tom16.jpg',text:`Tom was very naughty, and he scratched.
+Mrs. Tabitha dressed Moppet and Mittens in clean pinafores and tuckers; and then she took all sorts of elegant uncomfortable clothes out of a chest of drawers, in order to dress up her son Thomas.`},
+   {img:'assets/stories/tom-kitten/tom19.jpg',text:`Tom Kitten was very fat, and he had grown; several buttons burst off. His mother sewed them on again.`},
+   {img:'assets/stories/tom-kitten/tom20.jpg',text:`When the three kittens were ready, Mrs. Tabitha unwisely turned them out into the garden, to be out of the way while she made hot buttered toast.
+"Now keep your frocks clean, children! You must walk on your hind legs. Keep away from the dirty ash-pit, and from Sally Henny Penny, and from the pig-stye and the Puddle-Ducks."`},
+   {img:'assets/stories/tom-kitten/tom23.jpg',text:`Moppet and Mittens walked down the garden path unsteadily. Presently they trod upon their pinafores and fell on their noses.`},
+   {img:'assets/stories/tom-kitten/tom24.jpg',text:`When they stood up there were several green smears!
+"Let us climb up the rockery, and sit on the garden wall," said Moppet.
+They turned their pinafores back to front, and went up with a skip and a jump; Moppet's white tucker fell down into the road.`},
+   {img:'assets/stories/tom-kitten/tom27.jpg',text:`Tom Kitten was quite unable to jump when walking upon his hind legs in trousers. He came up the rockery by degrees, breaking the ferns, and shedding buttons right and left.`},
+   {img:'assets/stories/tom-kitten/tom28.jpg',text:`He was all in pieces when he reached the top of the wall.
+Moppet and Mittens tried to pull him together; his hat fell off, and the rest of his buttons burst.`},
+   {img:'assets/stories/tom-kitten/tom31.jpg',text:`While they were in difficulties, there was a pit pat paddle pat! and the three Puddle-Ducks came along the hard high road, marching one behind the other and doing the goose step—pit pat paddle pat! pit pat waddle pat!`},
+   {img:'assets/stories/tom-kitten/tom32.jpg',text:`They stopped and stood in a row, and stared up at the kittens. They had very small eyes and looked surprised.`},
+   {img:'assets/stories/tom-kitten/tom35.jpg',text:`Then the two duck-birds, Rebeccah and Jemima Puddle-Duck, picked up the hat and tucker and put them on.`},
+   {img:'assets/stories/tom-kitten/tom36.jpg',text:`Mittens laughed so that she fell off the wall. Moppet and Tom descended after her; the pinafores and all the rest of Tom's clothes came off on the way down.
+"Come! Mr. Drake Puddle-Duck," said Moppet—"Come and help us to dress him! Come and button up Tom!"`},
+   {img:'assets/stories/tom-kitten/tom39.jpg',text:`Mr. Drake Puddle-Duck advanced in a slow sideways manner, and picked up the various articles.`},
+   {img:'assets/stories/tom-kitten/tom40.jpg',text:`But he put them on himself! They fitted him even worse than Tom Kitten.
+"It's a very fine morning!" said Mr. Drake Puddle-Duck.`},
+   {img:'assets/stories/tom-kitten/tom43.jpg',text:`And he and Jemima and Rebeccah Puddle-Duck set off up the road, keeping step—pit pat, paddle pat! pit pat, waddle pat!`},
+   {img:'assets/stories/tom-kitten/tom47.jpg',text:`Then Tabitha Twitchit came down the garden and found her kittens on the wall with no clothes on.`},
+   {img:'assets/stories/tom-kitten/tom48.jpg',text:`She pulled them off the wall, smacked them, and took them back to the house.`},
+   {img:'assets/stories/tom-kitten/tom51.jpg',text:`"My friends will arrive in a minute, and you are not fit to be seen; I am affronted," said Mrs. Tabitha Twitchit.
+She sent them upstairs; and I am sorry to say she told her friends that they were in bed with the measles; which was not true.`},
+   {img:'assets/stories/tom-kitten/tom52.jpg',text:`Quite the contrary; they were not in bed: not in the least.
+Somehow there were very extraordinary noises over-head, which disturbed the dignity and repose of the tea party.`},
+   {img:'assets/stories/tom-kitten/tom55.jpg',text:`And I think that some day I shall have to make another, larger, book, to tell you more about Tom Kitten!`},
+   {img:'assets/stories/tom-kitten/tom57.jpg',text:`As for the Puddle-Ducks—they went into a pond.
+The clothes all came off directly, because there were no buttons.`},
+   {img:'assets/stories/tom-kitten/tom58.jpg',text:`And Mr. Drake Puddle-Duck, and Jemima and Rebeccah, have been looking for them ever since.`},
+  ]},
+];
+function curStory(){return SAMPLE_STORIES.find(function(s){return s.id===draft.storyId;})||SAMPLE_STORIES[0];}
+const MIC_MINI='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#26231E" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0"/><path d="M12 17v4"/></svg>';
+const BOOK_MINI='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#26231E" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><path d="M12 6c-2-1.2-4.6-1.2-7-.6v12c2.4-.6 5-.6 7 .6 2-1.2 4.6-1.2 7-.6V5.4c-2.4-.6-5-.6-7 .6z"/><path d="M12 6v12"/></svg>';
+
+let G={idx:0,phase:null,recog:null,mr:null,chunks:[],stream:null,rs:0,recording:false,completing:false,matched:0,base:0,tok:null,container:null,lastTake:null,audio:null,timer:null};
+
+/* ---------- word normalising + fuzzy alignment ---------- */
+function gNorm(w){return (w||'').toLowerCase().replace(/[‘’ʼ]/g,"'").replace(/[^a-z0-9']/g,'').replace(/^'+|'+$/g,'');}
+function gLev(a,b){const m=a.length,n=b.length;if(!m)return n;if(!n)return m;const dp=new Array(n+1);for(let j=0;j<=n;j++)dp[j]=j;for(let i=1;i<=m;i++){let prev=dp[0];dp[0]=i;for(let j=1;j<=n;j++){const tmp=dp[j];dp[j]=Math.min(dp[j]+1,dp[j-1]+1,prev+(a[i-1]===b[j-1]?0:1));prev=tmp;}}return dp[n];}
+function gEq(a,b){if(!a||!b)return false;if(a===b)return true;const L=Math.max(a.length,b.length);if(L>=4&&(a.startsWith(b)||b.startsWith(a)))return true;if(L>=4&&Math.abs(a.length-b.length)<=1&&gLev(a,b)<=1)return true;return false;}
+/* greedy two-pointer: count how many EXPECTED words are covered by the SPOKEN
+   stream, tolerating dropped words (reader ahead of ASR) and stray words. */
+function gAlign(spoken,expected){
+  let e=0,s=0;
+  while(s<spoken.length&&e<expected.length){
+    if(gEq(spoken[s],expected[e])){e++;s++;continue;}
+    let jumped=0;
+    for(let k=1;k<=2&&e+k<expected.length;k++){ if(gEq(spoken[s],expected[e+k])){jumped=k;break;} }
+    if(jumped){ e+=jumped; } else { s++; }
+  }
+  return e;
+}
+
+/* ---------- tokenise a page into display lines + matchable word list ---------- */
+function tokenizePage(text){
+  const rawLines=(text||'').split('\n');
+  let wi=0; const lines=[]; const words=[];
+  rawLines.forEach(function(ln){
+    const parts=ln.trim().length? ln.trim().split(/\s+/) : [];
+    const toks=parts.map(function(raw){
+      const norm=gNorm(raw);
+      if(norm){ const idx=wi++; words.push(norm); return {raw:raw,norm:norm,wordIdx:idx}; }
+      return {raw:raw,norm:'',wordIdx:null};
+    });
+    lines.push(toks);
+  });
+  return {lines:lines,words:words};
+}
+function renderPageHTML(tok){
+  return tok.lines.map(function(line){
+    if(!line.length) return '<div class="kline">&nbsp;</div>';
+    return '<div class="kline">'+line.map(function(t){
+      if(t.wordIdx==null) return '<span class="kw">'+esc(t.raw)+'</span>';
+      return '<span class="kw" data-w="'+t.wordIdx+'">'+esc(t.raw)+'</span>';
+    }).join(' ')+'</div>';
+  }).join('');
+}
+function updateLights(){
+  if(!G.container) return;
+  const M=G.matched||0;
+  const spans=G.container.querySelectorAll('.kw');
+  let litState=false;
+  spans.forEach(function(s){
+    const w=s.getAttribute('data-w');
+    if(w===null){ s.classList.toggle('lit',litState); s.classList.remove('next'); return; }
+    const wi=+w, on=wi<M;
+    s.classList.toggle('lit',on);
+    s.classList.toggle('next', wi===M && G.phase==='record');
+    litState=on;
+  });
+}
+
+/* ---------- mode chooser ---------- */
+function storyModeChooser(){
+  const guidedDone=draft.story.filter(t=>t.page!=null).length;
+  const freeCount=draft.story.filter(t=>t.page==null).length;
+  const N=curStory().pages.length;
+  return `${ILLO.story}<h2>The story</h2>
+  <p class="lede">Two ways to record the pages — pick whichever feels right. You can switch anytime.</p>
+  <div class="kchoose">
+    <div class="kcard" onclick="pickStoryMode('free')"><div class="kic">${MIC_MINI}</div>
+      <div><h3>Record your own way${freeCount?` <span class="kbadge" style="background:#6E675C">${freeCount} saved</span>`:''}</h3>
+      <p>Read from any book in your own rhythm and tap stop at each page turn. Full control — replay, re-record, or reorder any part.</p></div></div>
+    <div class="kcard" onclick="pickStoryMode('guided')"><div class="kic">${BOOK_MINI}</div>
+      <div><h3>Read along, guided <span class="kbadge">New</span>${guidedDone?` <span class="kbadge" style="background:#6E675C">${guidedDone}/${N}</span>`:''}</h3>
+      <p>We show a story one page at a time and the words light up as you read — like karaoke. Confirm each page, or do it again.</p></div></div>
+  </div>
+  <div class="actions" style="padding-top:22px"><button class="back" onclick="goStep(wizStep-1)">← Back</button><div class="right"></div></div>`;
+}
+function pickStoryMode(m){
+  const hasGuided=draft.story.some(t=>t.page!=null);
+  const hasFree=draft.story.some(t=>t.page==null);
+  if(m==='guided'&&hasFree) draft.story=draft.story.filter(t=>t.page!=null);
+  if(m==='free'&&hasGuided) draft.story=draft.story.filter(t=>t.page==null);
+  draft.storyMode=m;
+  if(m==='guided'){ G.phase=null; G.matched=0;G.base=0;G.lastTake=null;G.completing=false; }
+  lastDir=1; renderWizard();
+}
+function guidedBackToOptions(){ stopGuided(); stopAll(); draft.storyMode=null; lastDir=-1; renderWizard(); }
+
+/* ---------- story picker (guided) ---------- */
+function storyPicker(){
+  const cards=SAMPLE_STORIES.map(function(s){
+    const cover=(s.pages[0]&&s.pages[0].img)||'';
+    const done=(draft.storyId===s.id)?draft.story.filter(t=>t.page!=null).length:0;
+    return `<button class="kpickcard" onclick="pickGuidedStory('${s.id}')">
+      <span class="kpickart">${cover?`<img src="${cover}" alt="" draggable="false" onerror="kImgErr(this)">`:''}</span>
+      <span class="kpickmeta"><span class="kpicktitle">${esc(s.title)}</span><span class="kpicksub">${esc(s.author)} · ${s.pages.length} pages${done?` · <b>${done} read</b>`:''}</span></span>
+    </button>`;
+  }).join('');
+  return `${ILLO.story}<h2>Choose a story</h2>
+  <p class="lede">A classic picture book to read aloud together — the words light up as you read, like karaoke.</p>
+  <div class="kpick">${cards}</div>
+  <div class="actions" style="padding-top:22px;max-width:560px"><button class="back" onclick="guidedBackToOptions()">← Back</button><div class="right"></div></div>`;
+}
+function pickGuidedStory(id){
+  if(draft.storyId!==id){
+    draft.story=draft.story.filter(t=>t.page==null); // guided takes are per-story — clear the old story's pages
+    draft.storyId=id;
+    draft.title=curStory().title; draft.author=curStory().author;
+    G.phase=null; G.idx=0; G.matched=0; G.base=0; G.lastTake=null; G.completing=false;
+    saveDraftSoon();
+  }
+  lastDir=1; renderWizard();
+}
+function guidedChangeStory(){ stopGuided(); stopAll(); draft.storyId=null; G.phase=null; G.idx=0; lastDir=-1; renderWizard(); }
+
+/* ---------- reader views ---------- */
+function firstUnconfirmedPage(){
+  const N=curStory().pages.length, done={};
+  draft.story.forEach(function(t){ if(t.page!=null)done[t.page]=true; });
+  for(let i=0;i<N;i++){ if(!done[i]) return i; }
+  return N-1;
+}
+function guidedSyncFromDraft(){
+  const N=curStory().pages.length;
+  const cnt=draft.story.filter(t=>t.page!=null).length;
+  if(cnt>=N){ G.phase='done'; G.idx=0; }
+  else { G.phase='record'; G.idx=firstUnconfirmedPage(); }
+  G.matched=0; G.base=0; G.lastTake=null; G.completing=false;
+}
+function kProgHTML(){
+  const N=curStory().pages.length;
+  const dots=curStory().pages.map(function(p,i){
+    const done=draft.story.some(t=>t.page===i);
+    return `<span class="kdot ${i===G.idx?'on':(done?'done':'')}"></span>`;
+  }).join('');
+  return `<div class="kprog"><div class="klabel">Page ${G.idx+1} of ${N}</div><div class="kdots">${dots}</div></div>`;
+}
+function guidedReader(){
+  if(!draft.storyId) return storyPicker();
+  if(G.phase==null) guidedSyncFromDraft();
+  if(G.phase==='done') return guidedDoneView();
+  const head=kProgHTML();
+  const cur=curStory().pages[G.idx]||{};
+  const art=cur.img?`<img class="kpageimg" src="${cur.img}" alt="" draggable="false" onerror="this.style.display='none'">`:'';
+  const pagecard=`<div class="kpagewrap">${art}<div class="kpage" id="kpage"></div></div>`;
+  const anySaved=draft.story.some(t=>t.page!=null);
+  if(G.phase==='confirm'){
+    return `${head}${pagecard}
+    <button class="khear" id="khearBtn" onclick="guidedPlay(this)">▶ Hear my recording</button>
+    <div class="kconfirmrow"><button class="kbtn-redo" onclick="guidedRedo()">↺ Do again</button><button class="kbtn-confirm" onclick="guidedConfirm()">✓ Confirm page</button></div>
+    <div class="kfoot"><button class="klink" onclick="guidedBackToOptions()">Other recording style</button></div>`;
+  }
+  const SRok=!!(window.SpeechRecognition||window.webkitSpeechRecognition);
+  const note=SRok
+    ?`The words light up as you read — like karaoke. We’ll stop automatically at the end of the page, or tap the square to stop.`
+    :`Live word-lighting works best in Chrome or Safari. You can still record here, then tap Confirm.`;
+  const cont=anySaved?`<button class="klink" onclick="goStep(wizStep+1)">Continue →</button>`:'';
+  return `${head}${pagecard}
+  <div class="recwrap" id="recwrap_guided">
+    <button class="recbtn" id="recBtn_guided" onclick="guidedToggleRec()">${MIC_SVG}</button>
+    <canvas class="wavecanvas hidden" id="wave_guided" width="280" height="44"></canvas>
+    <div class="rectime" id="timer_guided">0:00</div>
+    <div class="rechint" id="hint_guided">Tap, then read the page aloud</div>
+    <button class="klink" style="margin-top:8px" onclick="guidedManualDone()">I’ve finished this page →</button>
+  </div>
+  <div class="khint-asr">${note}</div>
+  <div class="kfoot"><button class="klink" onclick="guidedChangeStory()">↺ Choose another story</button><button class="klink" onclick="guidedBackToOptions()">Other recording style</button>${cont}</div>`;
+}
+function guidedDoneView(){
+  const N=curStory().pages.length;
+  const rows=curStory().pages.map(function(p,i){
+    const first=esc((p.text.split('\n')[0]||'').slice(0,40));
+    const take=draft.story.find(t=>t.page===i);
+    const play=take?`<button class="pbtn play" data-icon="▶" title="Hear it" onclick="guidedPlayPage(${i},this)">▶</button>`:'';
+    return `<div class="kdone-row"><span class="kn">${i+1}</span>${p.img?`<img class="kdthumb" src="${p.img}" alt="" onerror="kImgErr(this)">`:''}<span class="ktxt">${first}…</span>${play}<button class="pbtn" title="Re-record" onclick="guidedRedoPage(${i})">↺</button></div>`;
+  }).join('');
+  return `<div class="kprog"><div class="klabel">All ${N} pages recorded</div></div>
+  <div class="kdone-head">Beautifully read. 🦊</div>
+  <p class="lede">Listen back to any page, do one again, or carry on to the ending.</p>
+  <div class="kdone-list">${rows}</div>
+  <div class="actions" style="padding-top:18px;max-width:470px"><button class="back" onclick="goStep(wizStep-1)">← Back</button><div class="right"><button class="next" onclick="goStep(wizStep+1)">Continue →</button></div></div>
+  <div class="kfoot"><button class="klink" onclick="guidedBackToOptions()">Other recording style</button></div>`;
+}
+function guidedMount(){
+  if(draft.storyMode!=='guided') return;
+  if(!draft.storyId) return;
+  if(G.phase==null) guidedSyncFromDraft();
+  if(G.phase==='done') return;
+  const page=curStory().pages[G.idx]; if(!page) return;
+  G.tok=tokenizePage(page.text);
+  G.container=document.getElementById('kpage');
+  if(G.container) G.container.innerHTML=renderPageHTML(G.tok);
+  if(G.phase==='confirm') G.matched=G.tok.words.length;
+  updateLights();
+}
+
+/* ---------- record + live recognition ---------- */
+function guidedToggleRec(){ if(G.recording){ guidedStopRec(true); } else { guidedStartRec(); } }
+async function guidedStartRec(){
+  let stream;
+  try{ stream=await getMic(); }
+  catch(err){ const h=document.getElementById('hint_guided'); if(h)h.textContent='🎤 Mic blocked here — allow microphone access to read along.'; return; }
+  G.stream=stream; G.chunks=[]; G.completing=false; G.matched=0; G.base=0;
+  const m=pickMime();
+  try{ G.mr=m?new MediaRecorder(stream,{mimeType:m}):new MediaRecorder(stream); }
+  catch(e){ G.mr=new MediaRecorder(stream); }
+  G.mr.ondataavailable=function(e){ if(e.data&&e.data.size>0)G.chunks.push(e.data); };
+  G.mr.onstop=guidedOnStop;
+  G.mr.start(); G.rs=Date.now(); G.recording=true;
+  const b=document.getElementById('recBtn_guided'); if(b){ b.classList.add('recording'); b.innerHTML=STOP_SVG; }
+  const h=document.getElementById('hint_guided'); if(h)h.textContent='Reading… tap the square when you reach the end';
+  updateLights();
+  G.timer=setInterval(function(){ const t=document.getElementById('timer_guided'); if(t)t.textContent=fmt((Date.now()-G.rs)/1000); },200);
+  try{ startWave('guided',stream); }catch(e){}
+  startGuidedRecog();
+}
+function startGuidedRecog(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR) return; // no live highlight available — audio still records
+  let r; try{ r=new SR(); }catch(e){ return; }
+  r.lang='en-US'; r.continuous=true; r.interimResults=true; r.maxAlternatives=1;
+  r.onresult=function(e){
+    if(!G.recording||!G.tok) return;
+    let full='';
+    for(let i=0;i<e.results.length;i++){ full+=e.results[i][0].transcript+' '; }
+    const spoken=full.toLowerCase().split(/\s+/).map(gNorm).filter(Boolean);
+    const add=gAlign(spoken,G.tok.words.slice(G.base));
+    const mm=Math.min(G.base+add,G.tok.words.length);
+    if(mm>G.matched){ G.matched=mm; updateLights(); guidedMaybeComplete(); }
+  };
+  r.onerror=function(e){
+    if(e&&(e.error==='not-allowed'||e.error==='service-not-allowed')){ const h=document.getElementById('hint_guided'); if(h)h.textContent='🎤 Live read-along needs mic permission — you can still record.'; }
+  };
+  r.onend=function(){ if(G.recording&&G.recog===r&&G.tok&&G.matched<G.tok.words.length){ G.base=G.matched; try{ r.start(); }catch(e){} } };
+  G.recog=r;
+  try{ r.start(); }catch(e){}
+}
+function guidedMaybeComplete(){
+  if(!G.tok) return;
+  if(G.matched>=G.tok.words.length && !G.completing){
+    G.completing=true;
+    const h=document.getElementById('hint_guided'); if(h)h.textContent='✓ End of page — nicely done!';
+    setTimeout(function(){ if(G.recording) guidedStopRec(false); },700);
+  }
+}
+function guidedManualDone(){ if(G.recording){ guidedStopRec(true); } else { toast('Tap the mic and read first'); } }
+function guidedStopRec(){
+  G.recording=false; G.completing=false;
+  if(G.timer){ clearInterval(G.timer); G.timer=null; }
+  try{ stopWave(); }catch(e){}
+  if(G.recog){ try{ G.recog.onend=null; G.recog.onresult=null; G.recog.abort(); }catch(e){} G.recog=null; }
+  const b=document.getElementById('recBtn_guided'); if(b){ b.classList.remove('recording'); b.innerHTML=MIC_SVG; }
+  if(G.mr&&G.mr.state&&G.mr.state!=='inactive'){ try{ G.mr.stop(); }catch(e){} } // -> guidedOnStop
+}
+async function guidedOnStop(){
+  let blob;
+  try{ blob=new Blob(G.chunks,{type:(G.mr&&G.mr.mimeType)||'audio/webm'}); }catch(e){ return; }
+  const secs=Math.round((Date.now()-G.rs)/100)/10;
+  if(blob.size>6*1024*1024){ toast('That take is long for the demo — try a shorter page'); }
+  let d; try{ d=await b2d(blob); }catch(e){ toast('Could not save that take'); return; }
+  G.lastTake={dataUrl:d,mime:blob.type,secs:secs,k:'t'+Date.now()+Math.floor(Math.random()*999),page:G.idx};
+  G.phase='confirm'; lastDir=1; renderWizard();
+}
+
+/* ---------- hear / redo / confirm ---------- */
+function setHearBtn(btn,on){ if(!btn)return; if(on){btn.classList.add('on');btn.innerHTML='⏸ Playing… tap to stop';} else {btn.classList.remove('on');btn.innerHTML='▶ Hear my recording';} }
+function guidedPlay(btn){
+  if(G.audio&&!G.audio.paused){ try{G.audio.pause();G.audio.currentTime=0;}catch(e){} setHearBtn(btn,false); return; }
+  if(!G.lastTake){ toast('Record this page first'); return; }
+  stopAll();
+  try{
+    if(!G.audio) G.audio=new Audio();
+    G.audio.src=G.lastTake.dataUrl;
+    G.audio.onended=function(){ setHearBtn(btn,false); };
+    G.audio.play().then(function(){ setHearBtn(btn,true); }).catch(function(){ toast('Could not play that take'); });
+  }catch(e){ toast('Could not play that take'); }
+}
+function guidedRedo(){ if(G.audio){try{G.audio.pause();}catch(e){}} G.lastTake=null;G.matched=0;G.base=0;G.completing=false;G.phase='record'; lastDir=-1; renderWizard(); }
+function guidedSaveTake(pageIdx,take){
+  take.page=pageIdx;
+  const ex=draft.story.findIndex(t=>t.page===pageIdx);
+  if(ex>=0){ const old=draft.story[ex]; if(old&&old.k)delete _bufCache['draft_'+old.k]; draft.story[ex]=take; }
+  else draft.story.push(take);
+  draft.story.sort(function(a,b){ return (a.page==null?999:a.page)-(b.page==null?999:b.page); });
+  saveDraftSoon();
+}
+function guidedConfirm(){
+  if(!G.lastTake){ toast('Record this page first'); return; }
+  if(G.audio){try{G.audio.pause();}catch(e){}}
+  guidedSaveTake(G.idx,G.lastTake);
+  toast('Page '+(G.idx+1)+' saved ✓');
+  G.lastTake=null;G.matched=0;G.base=0;G.completing=false;
+  if(G.idx<curStory().pages.length-1){ G.idx++; G.phase='record'; }
+  else { G.phase='done'; }
+  lastDir=1; renderWizard();
+}
+function guidedPlayPage(i,btn){ const take=draft.story.find(t=>t.page===i); if(!take){toast('Not recorded yet');return;} playTake(take.k,btn); }
+function guidedRedoPage(i){ stopGuided(); stopAll(); G.idx=i; G.phase='record'; G.matched=0;G.base=0;G.lastTake=null;G.completing=false; lastDir=-1; renderWizard(); }
+
+function stopGuided(){
+  G.recording=false; G.completing=false;
+  if(G.timer){ clearInterval(G.timer); G.timer=null; }
+  try{ stopWave(); }catch(e){}
+  if(G.recog){ try{ G.recog.onend=null; G.recog.onresult=null; G.recog.abort(); }catch(e){} G.recog=null; }
+  if(G.mr&&G.mr.state&&G.mr.state!=='inactive'){ try{ G.mr.onstop=null; G.mr.stop(); }catch(e){} }
+  if(G.audio){ try{ G.audio.pause(); }catch(e){} }
 }
 
 /* boot */
