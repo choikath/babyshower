@@ -42,10 +42,17 @@ resolverRouter.get("/p/:token", ipLimiter, tokenLimiter, ah(async (req: Request,
       const storage = await getStorage();
       const repo = await getRepo();
       const story = result.story;
-      const [stream, peaks] = await Promise.all([
-        storage.getSignedStreamUrl(story.audioKey!),
-        story.peaksKey ? storage.getSignedStreamUrl(story.peaksKey) : Promise.resolve(null),
-      ]);
+      const stream = await storage.getSignedStreamUrl(story.audioKey!);
+      // The waveform is decorative — a missing or unsignable peaks file must never
+      // block playback, so sign it best-effort and fall back to no waveform.
+      let peaksUrl: string | null = null;
+      if (story.peaksKey) {
+        try {
+          peaksUrl = (await storage.getSignedStreamUrl(story.peaksKey)).url;
+        } catch {
+          peaksUrl = null;
+        }
+      }
       // Count the play (best-effort; don't block the response).
       repo.incrementPlayCount(story.id).catch(() => {});
       res.json({
@@ -56,7 +63,7 @@ resolverRouter.get("/p/:token", ipLimiter, tokenLimiter, ah(async (req: Request,
           fromName: story.fromName,
           note: story.note,
           durationSec: story.durationSec,
-          peaksUrl: peaks?.url ?? null,
+          peaksUrl,
         },
         stream: { url: stream.url, expiresAt: stream.expiresAt },
       });

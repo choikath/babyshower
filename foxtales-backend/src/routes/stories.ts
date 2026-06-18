@@ -160,3 +160,23 @@ storiesRouter.get(
     });
   }),
 );
+
+/**
+ * A short-lived signed URL for the final stitched MP3, for in-app playback in
+ * the family surface (the inbox / done screen). Distinct from /p/:token, which
+ * resolves a *card* with no auth — this resolves a *story* by id and requires
+ * family membership. Owner or member.
+ */
+storiesRouter.get(
+  "/stories/:id/stream",
+  ah(async (req: Request, res: Response) => {
+    const repo = await getRepo();
+    const story = await repo.getStory(req.params.id!);
+    if (!story) throw new HttpError(404, "story_not_found");
+    await assertFamilyRole(req.userId!, story.familyId, ["owner", "member"]);
+    if (story.status !== "ready" || !story.audioKey) throw new HttpError(409, "story_not_ready");
+    const storage = await getStorage();
+    const signed = await storage.getSignedStreamUrl(story.audioKey);
+    res.json({ url: signed.url, expiresAt: signed.expiresAt });
+  }),
+);

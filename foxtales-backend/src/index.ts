@@ -13,6 +13,26 @@ const app = express();
 app.disable("x-powered-by");
 app.set("trust proxy", env.TRUST_PROXY);
 
+// CORS. The browser front-end (foxtales-app.html) calls /api from its own
+// origin — possibly file://, localhost, or a host that isn't this app — so the
+// responses need CORS headers or the browser blocks them. We authenticate with
+// a Supabase Bearer token (no cookies), so allowing any origin is safe: an
+// unauthenticated origin still can't do anything without a valid user token.
+// Pin it to a single origin by setting CORS_ALLOW_ORIGIN if you ever want to.
+const corsOrigin = process.env.CORS_ALLOW_ORIGIN || "*";
+app.use((req: Request, res: Response, next: NextFunction) => {
+  res.header("Access-Control-Allow-Origin", corsOrigin);
+  res.header("Vary", "Origin");
+  res.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.header("Access-Control-Allow-Headers", "authorization, content-type, x-upsert");
+  res.header("Access-Control-Max-Age", "86400");
+  if (req.method === "OPTIONS") {
+    res.status(204).end();
+    return;
+  }
+  next();
+});
+
 // Health.
 app.get("/healthz", (_req, res) => {
   res.json({ ok: true, dbDriver: env.DB_DRIVER, storageDriver: env.STORAGE_DRIVER });

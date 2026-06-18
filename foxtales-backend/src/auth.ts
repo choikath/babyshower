@@ -19,7 +19,7 @@ declare global {
 // jose), and fall back to the shared secret if one is configured — so this works
 // on either setup without code changes.
 const jwks = env.SUPABASE_URL
-  ? createRemoteJWKSet(new URL("/auth/v1/jwks", env.SUPABASE_URL))
+  ? createRemoteJWKSet(new URL("/auth/v1/.well-known/jwks.json", env.SUPABASE_URL))
   : null;
 const hsKey = env.SUPABASE_JWT_SECRET ? new TextEncoder().encode(env.SUPABASE_JWT_SECRET) : null;
 

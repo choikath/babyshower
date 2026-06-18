@@ -1,35 +1,23 @@
-# fly.toml app configuration file generated for foxtales-backend on 2026-06-15T18:31:27-07:00
-#
-# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
-#
+app = "foxtales-backend"
+primary_region = "sjc"
 
-app = 'foxtales-backend'
-primary_region = 'sjc'
-
+# ffmpeg is baked into the runtime image (Dockerfile) for the stitch pipeline.
+# Point at it explicitly so Fly never falls back to buildpack auto-detection.
 [build]
+  dockerfile = "Dockerfile"
 
 [http_service]
-  internal_port = 8080
+  internal_port = 8080          # matches PORT=8080 in the Dockerfile / env default
   force_https = true
-  auto_stop_machines = 'stop'
-  auto_start_machines = true
-  min_machines_running = 1
-  processes = ['app']
+  auto_stop_machines = "stop"   # free-tier friendly: machine sleeps when idle
+  auto_start_machines = true    # ...and wakes on the next request (brief cold start)
+  min_machines_running = 0
+  processes = ["app"]
 
-[[vm]]
-  memory = '1gb'
-  cpus = 1
-  memory_mb = 1024
-
-[env]
-  NODE_ENV = "production"
-  DB_DRIVER = "postgres"
-  STORAGE_DRIVER = "supabase"
-  AUDIO_BUCKET = "audio"
-  SUPABASE_URL = "https://mhhqftrkitwjqripelvl.supabase.co"
-  PUBLIC_BASE_URL = "https://foxtales-backend.fly.dev"   # your fly.dev URL for now
-  SIGNED_URL_TTL_SEC = "600"
-  TRUST_PROXY = "1"
-  APPLE_TEAM_ID = "YOURTEAMID"
-  IOS_BUNDLE_ID = "app.foxtales.ios"
-  APPCLIP_BUNDLE_ID = "app.foxtales.ios.Clip"
+  # Confirms the process is actually serving, not just running.
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/healthz"
