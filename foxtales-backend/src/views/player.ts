@@ -73,6 +73,16 @@ body{
 .pp svg{width:24px; height:24px; display:block}
 .hint{text-align:center; font-size:12px; color:var(--muted); letter-spacing:.04em; margin:18px 0 0}
 .foot{margin-top:30px; padding-top:18px; border-top:1px solid var(--hairline); font-size:11px; letter-spacing:.22em; text-transform:uppercase; color:var(--brass-deep)}
+.ft-cta{margin-top:30px; padding-top:22px; border-top:1px solid var(--hairline); display:flex; flex-direction:column; gap:11px}
+.ft-cta .lead{font-size:11px; letter-spacing:.30em; text-transform:uppercase; color:var(--brass-deep); font-weight:600; margin:0 0 4px}
+.ft-btn{display:flex; align-items:center; justify-content:center; gap:10px; padding:14px 20px; border-radius:2px; text-decoration:none; line-height:1; font-family:var(--sans); font-weight:600; font-size:12px; letter-spacing:.14em; text-transform:uppercase; transition:background .15s ease}
+.ft-btn svg{flex:0 0 auto; width:16px; height:16px}
+.ft-btn-primary{background:var(--ink); color:var(--bg); border:1px solid var(--ink)}
+.ft-btn-primary:hover{background:#3B372F}
+.ft-btn-ghost{background:transparent; color:var(--ink); border:1px solid var(--hairline-dark)}
+.ft-btn-ghost:hover{background:var(--paper)}
+.ft-btn-ghost svg{stroke:var(--brass)}
+.ft-btn:focus-visible{outline:2px solid var(--brass); outline-offset:4px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 `;
 
@@ -92,7 +102,7 @@ ${smartBanner()}
 <body>
 <main class="frame">
 ${inner}
-<div class="foot">FoxTales</div>
+<div class="foot"><a href="https://foxtaleclub.com" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">FoxTales</a></div>
 </main>
 </body>
 </html>`;
@@ -114,6 +124,10 @@ export function renderPlayer(args: { token: string; story: PlayerStory }): strin
     (story.author ? `by <span class="nm">${esc(story.author)}</span> · ` : "") +
     `read by <span class="nm">${esc(story.fromName)}</span>`;
 
+  const app = env.WEB_APP_URL.replace(/\/+$/, "");
+  const tellHref = esc(`${app}/#tell?from=${encodeURIComponent(token)}`);
+  const noteHref = esc(`${app}/#voicenote?to=${encodeURIComponent(story.fromName)}&from=${encodeURIComponent(token)}`);
+
   const inner = `
 <p class="eyebrow">A story for you</p>
 <h1 class="title">${esc(story.title)}</h1>
@@ -132,6 +146,18 @@ ${story.note ? `<p class="note">${esc(story.note)}</p>` : ""}
     </button>
   </div>
   <p class="hint" id="hint">Tap play to begin</p>
+</section>
+
+<section class="ft-cta" aria-label="Add your voice">
+  <p class="lead">Add your voice</p>
+  <a class="ft-btn ft-btn-primary" href="${tellHref}">
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 15a4 4 0 0 0 4-4V6a4 4 0 1 0-8 0v5a4 4 0 0 0 4 4z"/><path d="M18 11a6 6 0 0 1-12 0H4a8 8 0 0 0 7 7.94V22H8.5v2h7v-2H13v-3.06A8 8 0 0 0 20 11h-2z"/></svg>
+    <span>Record your own story</span>
+  </a>
+  <a class="ft-btn ft-btn-ghost" href="${noteHref}">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M4 7.5l8 6 8-6"/></svg>
+    <span>Record a voice note for ${esc(story.fromName)}</span>
+  </a>
 </section>
 
 <audio id="audio" preload="none" playsinline></audio>
