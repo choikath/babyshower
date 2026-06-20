@@ -15,6 +15,11 @@ const Env = z
     // Tokens are written onto tags as `${PUBLIC_BASE_URL}/p/<token>`.
     PUBLIC_BASE_URL: z.string().url().default("http://localhost:8080"),
 
+    // The recorder web app the player's "add your voice" buttons deep-link
+    // into (e.g. https://foxtales.app). Separate from PUBLIC_BASE_URL, which
+    // is this backend's own origin where /p and /play live.
+    WEB_APP_URL: z.string().url().default("https://foxtales.app"),
+
     DB_DRIVER: z.enum(["postgres", "memory"]).default("memory"),
     DATABASE_URL: z.string().optional(),
 
