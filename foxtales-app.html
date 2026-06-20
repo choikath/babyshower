@@ -1501,7 +1501,7 @@ function itemHTML(it,isBt){
       </div>
     </div></div></div>`;
 }
-async function dl(aid,ext,fname){const blob=await Backend.getAudioBlob(aid);if(!blob){toast('Audio not found');return;}const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=(fname||'bedtime-story')+'.'+(ext||'mp3');document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url);},4000);toast(fname==='voice-note'?'Voice note downloaded':'Downloaded \u2014 upload it to a Yoto MYO card');}
+async function dl(aid,ext,fname){const blob=await Backend.getAudioBlob(aid);if(!blob){toast('Audio not found');return;}const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=(fname||'bedtime-story')+'.'+(ext||'mp3');document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url);},4000);toast(fname==='voice-note'?'Voice note downloaded':'Downloaded');}
 async function playStored(btn,id){
   if(waKey===id){stopAll();return;}
   stopAll();
