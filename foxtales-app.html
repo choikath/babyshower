@@ -893,7 +893,8 @@ function voiceNoteHTML(it,isBt){
 /* ---------- parent ---------- */
 async function saveChild(){try{await Backend.setChildName(document.getElementById('childName').value.trim());toast('Saved');}catch(e){toast('Could not save');}}
 function ftPageBase(){return location.href.split('#')[0].split('?')[0];}
-function ftShareUrl(name){var u=ftPageBase()+'#tell';if(name&&name.trim())u+='?for='+encodeURIComponent(name.trim());return u;}
+function ftRecorderBase(){return ftPageBase().replace(/\/admin\/?$/i,'/');}  /* recorder now lives at the site root, not /admin */
+function ftShareUrl(name){var u=ftRecorderBase();if(name&&name.trim())u+='?for='+encodeURIComponent(name.trim());return u;}
 async function makeLink(){var box=document.getElementById('childName');var name=box?box.value.trim():'';if(!name){try{var i=await getIndex();name=(i&&i.childName)||'';}catch(e){}}if(name){try{await Backend.setChildName(name);}catch(e){}}var url=ftShareUrl(name);document.getElementById('linkArea').classList.remove('hidden');document.getElementById('linkText').textContent=url;toast(name?('Link ready \u2014 made for '+name):'Link ready to share');}
 function copyLink(){const t=document.getElementById('linkText').textContent;navigator.clipboard&&navigator.clipboard.writeText(t).then(()=>toast('Copied'),()=>toast('Copy the link above'));}
 
@@ -1969,7 +1970,22 @@ var STORYTELLER=false;
 function doneBack(){ if(STORYTELLER){ startFlow(); } else { showView('parent'); } }
 function ftParseShare(){var h=location.hash||'';var m=h.match(/^#\/?tell(?:\?(.*))?$/i);if(!m)return null;var name='',from='';if(m[1]){m[1].split('&').forEach(function(p){var kv=p.split('=');var k=decodeURIComponent(kv[0]||'');var v='';try{v=decodeURIComponent((kv[1]||'').replace(/\+/g,' '));}catch(e){v=(kv[1]||'');}if(k==='for')name=v;else if(k==='from')from=v;});}return {name:name,from:from};}
 function ftParseVoiceNote(){var h=location.hash||'';var m=h.match(/^#\/?voicenote(?:\?(.*))?$/i);if(!m)return null;var out={name:'',to:'',from:''};if(m[1]){m[1].split('&').forEach(function(p){var kv=p.split('=');var k=decodeURIComponent(kv[0]||'');var v='';try{v=decodeURIComponent((kv[1]||'').replace(/\+/g,' '));}catch(e){v=(kv[1]||'');}if(k==='for')out.name=v;else if(k==='to')out.to=v;else if(k==='from')out.from=v;});}return out;}
-(async function ftBoot(){var vn=ftParseVoiceNote();if(vn){VOICENOTE=true;VN_READER=vn.to||'';ORIGIN_TOKEN=vn.from||'';document.body.classList.add('storyteller');document.body.classList.add('voicenote');if(vn.name){try{await Backend.setChildName(vn.name);}catch(e){}}try{await renderAll();}catch(e){}if(vn.name)childNameCache=vn.name;startVoiceNote();return;}var s=ftParseShare();if(s){STORYTELLER=true;ORIGIN_TOKEN=s.from||'';document.body.classList.add('storyteller');if(s.name){try{await Backend.setChildName(s.name);}catch(e){}}try{await renderAll();}catch(e){}if(s.name)childNameCache=s.name;startFlow();}else{renderAll();}})();
+function ftParseSearch(){var q=(location.search||'').replace(/^\?/,'');var out={name:'',from:''};if(q){q.split('&').forEach(function(p){var kv=p.split('=');var k=decodeURIComponent(kv[0]||'');var v='';try{v=decodeURIComponent((kv[1]||'').replace(/\+/g,' '));}catch(e){v=(kv[1]||'');}if(k==='for')out.name=v;else if(k==='from')out.from=v;});}return out;}
+function ftIsAdminPath(){var pth=(location.pathname||'').replace(/\/+$/,'');return /\/admin$/i.test(pth);}
+(async function ftBoot(){
+  /* voice-note deep-link (hash) still works exactly as before */
+  var vn=ftParseVoiceNote();
+  if(vn){VOICENOTE=true;VN_READER=vn.to||'';ORIGIN_TOKEN=vn.from||'';document.body.classList.add('storyteller');document.body.classList.add('voicenote');if(vn.name){try{await Backend.setChildName(vn.name);}catch(e){}}try{await renderAll();}catch(e){}if(vn.name)childNameCache=vn.name;startVoiceNote();return;}
+  /* the parent dashboard now lives at /admin */
+  if(ftIsAdminPath()){ renderAll(); return; }
+  /* everything else (the site root) is the recorder; #tell or ?for=/?from= still carry params */
+  var s=ftParseShare()||ftParseSearch();
+  STORYTELLER=true;ORIGIN_TOKEN=s.from||'';document.body.classList.add('storyteller');
+  if(s.name){try{await Backend.setChildName(s.name);}catch(e){}}
+  try{await renderAll();}catch(e){}
+  if(s.name)childNameCache=s.name;
+  startFlow();
+})();
 </script>
 </body>
 </html>
