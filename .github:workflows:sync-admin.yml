@@ -1,0 +1,37 @@
+name: Sync /admin with index.html
+
+on:
+  push:
+    branches: [main]        # ← change if GitHub Pages serves from a different branch
+    paths: [index.html]     # only run when the app itself changes
+
+permissions:
+  contents: write           # lets the workflow commit admin/index.html back
+
+# if you push a couple of times quickly, let the newest run win
+concurrency:
+  group: sync-admin
+  cancel-in-progress: true
+
+jobs:
+  sync-admin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Mirror index.html into /admin
+        run: |
+          mkdir -p admin
+          cp index.html admin/index.html
+
+      - name: Commit the mirror if it changed
+        run: |
+          git add admin/index.html
+          if git diff --cached --quiet -- admin/index.html; then
+            echo "admin/index.html already in sync — nothing to commit."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: mirror index.html to admin/index.html"
+          git push origin HEAD:${{ github.ref_name }}
