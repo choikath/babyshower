@@ -623,7 +623,8 @@ const API={
   },
   async setChildName(name){ try{ localStorage.setItem('ft_childName',name||''); }catch(e){} },
   async saveStory(item,blob){
-    await ensureAuthed();   // need a user token before any /api call
+    // No sign-in required: anonymous contributors can finalize & send. Every save is
+    // scoped to FAMILY_ID (the Choi-Kath inbox). Backend must accept these family-scoped writes.
     // 1) create the story (status=processing) -> signed PUT URL for one part
     const created=await _api('/api/stories',{ method:'POST', json:{
       familyId:FAMILY_ID, fromName:item.from||'A loved one',
@@ -727,6 +728,10 @@ function _renderAuthChip(){
 /* ===== active backend ===== */
 const USING_SUPA=!!(SB_ON&&sb)&&!API_ON;
 const Backend=API_ON?API:(USING_SUPA?SUPA:LOCAL);
+/* just-recorded audio kept in memory so the done screen can play/download it without
+   a backend token (anonymous contributors have no session). Falls back to the backend. */
+const _localBlobs={};
+async function getBlob(id){ if(id&&_localBlobs[id]) return _localBlobs[id]; return await Backend.getAudioBlob(id); }
 if(API_ON){console.info('[FoxTales] Wired to the NFC backend at '+API_BASE+' (family '+FAMILY_ID+').');}
 else if(USING_SUPA){console.info('[FoxTales] Connected to Supabase ('+SB_URL+').');}
 else if(SB_ON){setTimeout(function(){toast('Supabase unavailable \u2014 using local demo store');},500);}
@@ -767,7 +772,7 @@ async function updateResumeBar(){
 async function resumeDraft(){
   const raw=await dbGetP(DRAFTK); if(!raw){toast('Draft not found');return;}
   let d;try{d=JSON.parse(raw);}catch(e){toast('Draft not found');return;}
-  draft=Object.assign({title:'',author:'',name:'',note:'',practice:null,intro:null,story:[],outro:null,chime:'sfx:page_turn',storyMode:null,storyId:null},d.draft||{});
+  draft=Object.assign({title:'',author:'',name:'',note:'',practice:null,intro:null,story:[],outro:null,chime:'sfx:double_pop',storyMode:null,storyId:null},d.draft||{});
   if(!Array.isArray(draft.story))draft.story=draft.story?[draft.story]:[];
   draft.story.forEach(function(pp){if(!pp.k)pp.k='t'+Date.now()+Math.floor(Math.random()*9999);});
   wizStep=Math.min(4,Math.max(1,(typeof d.wizStep==='number')?d.wizStep:2));
@@ -796,7 +801,7 @@ function showView(v){
 async function startFlow(){
   const raw=await dbGetP(DRAFTK);
   if(raw){try{const d=JSON.parse(raw);if(storedDraftHasContent(d)){resumeDraft();return;}}catch(e){}}
-  draft={title:'',author:'',name:'',note:'',practice:null,intro:null,story:[],outro:null,chime:'sfx:page_turn',storyMode:null,storyId:null};
+  draft={title:'',author:'',name:'',note:'',practice:null,intro:null,story:[],outro:null,chime:'sfx:double_pop',storyMode:null,storyId:null};
   wizStep=0;lastDir=1;showView('record');renderWizard();
 }
 
@@ -861,6 +866,7 @@ async function sendVoiceNote(){
   try{ _save=await Backend.saveStory(item,result.blob); }
   catch(e){ if(e&&e.message==='sign_in_cancelled'){ renderVoiceNote(); return; } console.error('[FoxTales] voice note save failed:',e); toast('Couldn’t send your voice note. Please try again.'); renderVoiceNote(); return; }
   var _sid=(_save&&_save.storyId)?_save.storyId:id;
+  _localBlobs[_sid]=result.blob;
   lastTrack={id:_sid,ext:result.ext,book:'',from:from,parts:np,secs:result.secs||0,tapUrl:(_save&&_save.tapUrl)||'',isVoiceNote:true,vnReader:reader};
   draft={title:'',author:'',name:'',note:'',practice:null,intro:null,story:[],outro:null,chime:'',storyMode:null,storyId:null,isVoiceNote:true};
   clearDraftStore();
@@ -904,7 +910,7 @@ function copyLink(){const t=document.getElementById('linkText').textContent;navi
 const STAGES=['practice','intro','story','outro','finish'];
 const LABELS=['Practice','Intro','Story','The End','Finish'];
 let wizStep=0,lastDir=1,lastTrack=null;
-let draft={title:'',author:'',name:'',note:'',practice:null,intro:null,story:[],outro:null,chime:'sfx:page_turn',storyMode:null,storyId:null};
+let draft={title:'',author:'',name:'',note:'',practice:null,intro:null,story:[],outro:null,chime:'sfx:double_pop',storyMode:null,storyId:null};
 let childNameCache='your little one';
 
 const CHIMES=[
@@ -1071,7 +1077,7 @@ function introScriptText(){
 }
 function stepIntro(){
   return `${ILLO.intro}<h2>The intro</h2>
-  <p class="lede">Open the same way every time \u2014 kids love the familiarity.</p>
+  <p class="lede">Make this fun! Add a personal greeting and why you love this book!</p>
   <div class="inrow">
     <div class="f"><label class="fld">Book title</label><input class="txt" oninput="draft.title=this.value;updateScript()" placeholder="The Gruffalo" value="${esc(draft.title)}"></div>
     <div class="f"><label class="fld">Author</label><input class="txt" oninput="draft.author=this.value;updateScript()" placeholder="Julia Donaldson" value="${esc(draft.author)}"></div>
@@ -1101,7 +1107,7 @@ function stepStoryFree(){
   ${actions(false,false)}`;
 }
 function stepOutro(){
-  const sig=esc((draft.name||'Grandma').split(' ')[0]);
+  const sig=esc(draft.name||'Grandma');
   return `${ILLO.outro}<h2>The end</h2>
   <p class="lede">Finish with a great big <b>\u201CTheee Eeennd!\u201D</b> and your sign-off \u2014 \u201CThis has been a <b>${sig} Production</b>.\u201D</p>
   ${recBlock('outro')}
@@ -1457,8 +1463,9 @@ async function finishAndUpload(){
   try{ _save=await Backend.saveStory(item,result.blob); }
   catch(e){ if(e&&e.message==='sign_in_cancelled'){ renderWizard(); return; } console.error('[FoxTales] saveStory failed:',e); toast('Couldn\u2019t send your story. Please try again.'); renderWizard(); return; }
   const _sid=(_save&&_save.storyId)?_save.storyId:id;   // the backend assigns the canonical id; play/stream key off it
+  _localBlobs[_sid]=result.blob;
   lastTrack={id:_sid,ext:result.ext,book:(draft.title||'').trim(),from:from,parts:np,secs:result.secs||0,tapUrl:(_save&&_save.tapUrl)||''};
-  draft={title:'',author:'',name:'',note:'',practice:null,intro:null,story:[],outro:null,chime:'sfx:page_turn',storyMode:null,storyId:null};
+  draft={title:'',author:'',name:'',note:'',practice:null,intro:null,story:[],outro:null,chime:'sfx:double_pop',storyMode:null,storyId:null};
   clearDraftStore();
   flyAway();
 }
@@ -1502,12 +1509,12 @@ function itemHTML(it,isBt){
       </div>
     </div></div></div>`;
 }
-async function dl(aid,ext,fname){const blob=await Backend.getAudioBlob(aid);if(!blob){toast('Audio not found');return;}const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=(fname||'bedtime-story')+'.'+(ext||'mp3');document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url);},4000);toast(fname==='voice-note'?'Voice note downloaded':'Downloaded');}
+async function dl(aid,ext,fname){const blob=await getBlob(aid);if(!blob){toast('Audio not found');return;}const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=(fname||'bedtime-story')+'.'+(ext||'mp3');document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url);},4000);toast(fname==='voice-note'?'Voice note downloaded':'Downloaded');}
 async function playStored(btn,id){
   if(waKey===id){stopAll();return;}
   stopAll();
   const c=ac();if(c.state==='suspended'){try{await c.resume();}catch(e){}}
-  let buf;try{if(!_bufCache[id]){const blob=await Backend.getAudioBlob(id);if(!blob){toast('Audio not found');return;}_bufCache[id]=await c.decodeAudioData(await blob.arrayBuffer());}buf=_bufCache[id];}catch(e){toast('Could not play');return;}
+  let buf;try{if(!_bufCache[id]){const blob=await getBlob(id);if(!blob){toast('Audio not found');return;}_bufCache[id]=await c.decodeAudioData(await blob.arrayBuffer());}buf=_bufCache[id];}catch(e){toast('Could not play');return;}
   const s=c.createBufferSource();s.buffer=buf;s.connect(c.destination);
   s.onended=function(){if(waKey===id)stopAll();};
   s.start();waSrc=s;waKey=id;
@@ -1521,7 +1528,7 @@ async function playBedtime(){
   const next=async()=>{
     if(i>=list.length){toast('Goodnight 🌙');return;}
     const it=list[i];
-    let buf;try{if(!_bufCache[it.id]){const blob=await Backend.getAudioBlob(it.id);if(!blob){i++;return next();}_bufCache[it.id]=await c.decodeAudioData(await blob.arrayBuffer());}buf=_bufCache[it.id];}catch(e){i++;return next();}
+    let buf;try{if(!_bufCache[it.id]){const blob=await getBlob(it.id);if(!blob){i++;return next();}_bufCache[it.id]=await c.decodeAudioData(await blob.arrayBuffer());}buf=_bufCache[it.id];}catch(e){i++;return next();}
     const s=c.createBufferSource();s.buffer=buf;s.connect(c.destination);s.onended=function(){i++;next();};s.start();waSrc=s;waKey='bt';toast('Playing: '+(it.from||'story'));
   };
   next();
