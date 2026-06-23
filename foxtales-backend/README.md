@@ -195,6 +195,10 @@ account, and there's one genuine unknown to spike first: **background audio
 inside an App Clip** (does playback continue when the screen locks?). The web
 player is the permanent fallback, so tap-to-play works on every phone regardless.
 
+For the product/architecture view — the iOS instant-play experience, the Android
+web fallback, what it takes to turn the clip on, and what families feel — see
+[`docs/appclip-experience.md`](docs/appclip-experience.md).
+
 ## Security notes
 
 - Tokens are 22-char base62 (~131 bits) from a CSPRNG with rejection sampling —
