@@ -4,7 +4,8 @@ import { dirname, extname, join } from "node:path";
 import { Router, type Request, type Response } from "express";
 import { z } from "zod";
 import { ah } from "../http.js";
-import { assertFamilyRole, HttpError } from "../auth.js";
+import { assertFamilyRole, authorizeContribution, optionalAuth, requireAuth, HttpError } from "../auth.js";
+import { ipLimiter } from "../ratelimit.js";
 import { getRepo } from "../repo.js";
 import { getStorage } from "../storage/index.js";
 import { stitch, type StitchManifest } from "../stitch.js";
@@ -22,6 +23,8 @@ const peaksKey = (f: string, s: string) => `families/${f}/stories/${s}/peaks.jso
 /** Create a story (status=processing) and hand back signed PUT URLs for the raw parts. */
 storiesRouter.post(
   "/stories",
+  ipLimiter,
+  optionalAuth,
   ah(async (req: Request, res: Response) => {
     const body = z
       .object({
@@ -37,14 +40,14 @@ storiesRouter.post(
       })
       .parse(req.body);
 
-    await assertFamilyRole(req.userId!, body.familyId, ["owner", "member"]);
+    await authorizeContribution(req, body.familyId, ["owner", "member"]);
     const repo = await getRepo();
     const storage = await getStorage();
 
     const story = await repo.createStory({
       familyId: body.familyId,
       fromName: body.fromName,
-      fromUserId: req.userId!,
+      fromUserId: req.userId ?? null,
       title: body.title,
       author: body.author ?? null,
       note: body.note ?? null,
@@ -83,6 +86,8 @@ storiesRouter.post(
  */
 storiesRouter.post(
   "/stories/:id/stitch",
+  ipLimiter,
+  optionalAuth,
   ah(async (req: Request, res: Response) => {
     const body = z
       .object({
@@ -96,7 +101,7 @@ storiesRouter.post(
     const repo = await getRepo();
     const story = await repo.getStory(req.params.id!);
     if (!story) throw new HttpError(404, "story_not_found");
-    await assertFamilyRole(req.userId!, story.familyId, ["owner", "member"]);
+    await authorizeContribution(req, story.familyId, ["owner", "member"]);
 
     const storage = await getStorage();
     const work = await mkdtemp(join(tmpdir(), "foxtales-raw-"));
@@ -146,6 +151,7 @@ storiesRouter.post(
 /** The family inbox. Member. */
 storiesRouter.get(
   "/stories",
+  requireAuth,
   ah(async (req: Request, res: Response) => {
     const familyId = z.string().uuid().parse(req.query.familyId);
     await assertFamilyRole(req.userId!, familyId, ["owner", "member"]);
@@ -169,6 +175,7 @@ storiesRouter.get(
  */
 storiesRouter.get(
   "/stories/:id/stream",
+  requireAuth,
   ah(async (req: Request, res: Response) => {
     const repo = await getRepo();
     const story = await repo.getStory(req.params.id!);

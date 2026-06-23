@@ -20,6 +20,13 @@ const Env = z
     // is this backend's own origin where /p and /play live.
     WEB_APP_URL: z.string().url().default("https://foxtales.app"),
 
+    // Families whose contributor endpoints (story create/stitch + card mint/link)
+    // accept anonymous, unauthenticated writes via a public share link. Comma-
+    // separated UUIDs; empty (default) means every /api route stays auth-gated.
+    // This is the one knob that opens the storyteller flow to people without an
+    // account — scope it to exactly the families you intend to be public.
+    PUBLIC_CONTRIB_FAMILY_IDS: z.string().default(""),
+
     DB_DRIVER: z.enum(["postgres", "memory"]).default("memory"),
     DATABASE_URL: z.string().optional(),
 

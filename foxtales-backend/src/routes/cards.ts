@@ -2,9 +2,10 @@ import { Router, type Request, type Response } from "express";
 import { z } from "zod";
 import { env } from "../env.js";
 import { ah } from "../http.js";
-import { assertFamilyRole, HttpError } from "../auth.js";
+import { assertFamilyRole, authorizeContribution, optionalAuth, requireAuth, HttpError } from "../auth.js";
 import { getRepo } from "../repo.js";
 import { generateToken } from "../token.js";
+import { ipLimiter } from "../ratelimit.js";
 
 export const cardsRouter: Router = Router();
 
@@ -16,9 +17,11 @@ function capabilityUrl(token: string): string {
  * writes to the NFC tag, then locks (spec 1.3). Owner only. */
 cardsRouter.post(
   "/cards",
+  ipLimiter,
+  optionalAuth,
   ah(async (req: Request, res: Response) => {
     const body = z.object({ familyId: z.string().uuid() }).parse(req.body);
-    await assertFamilyRole(req.userId!, body.familyId, ["owner"]);
+    await authorizeContribution(req, body.familyId, ["owner"]);
     const repo = await getRepo();
     const token = generateToken();
     const card = await repo.createCard({ familyId: body.familyId, token });
@@ -29,6 +32,7 @@ cardsRouter.post(
 /** List a family's cards with their linked story title (the "My cards" screen). Member. */
 cardsRouter.get(
   "/cards",
+  requireAuth,
   ah(async (req: Request, res: Response) => {
     const familyId = z.string().uuid().parse(req.query.familyId);
     await assertFamilyRole(req.userId!, familyId, ["owner", "member"]);
@@ -57,12 +61,14 @@ cardsRouter.get(
 /** Point a card at a story. Re-pointing is allowed but deliberate (Decision 2). Owner. */
 cardsRouter.post(
   "/cards/:id/link",
+  ipLimiter,
+  optionalAuth,
   ah(async (req: Request, res: Response) => {
     const body = z.object({ storyId: z.string().uuid() }).parse(req.body);
     const repo = await getRepo();
     const card = await repo.getCard(req.params.id!);
     if (!card) throw new HttpError(404, "card_not_found");
-    await assertFamilyRole(req.userId!, card.familyId, ["owner"]);
+    await authorizeContribution(req, card.familyId, ["owner"]);
     const story = await repo.getStory(body.storyId);
     if (!story || story.familyId !== card.familyId) throw new HttpError(400, "story_not_in_family");
     const updated = await repo.linkCard(card.id, story.id);
@@ -73,6 +79,7 @@ cardsRouter.post(
 /** Record that the physical tag was write-locked (the CoreNFC lock happens on-device). Owner. */
 cardsRouter.post(
   "/cards/:id/lock",
+  requireAuth,
   ah(async (req: Request, res: Response) => {
     const repo = await getRepo();
     const card = await repo.getCard(req.params.id!);
@@ -86,6 +93,7 @@ cardsRouter.post(
 /** Kill switch for a lost or misused card — the token stops resolving (spec 1.4). Owner. */
 cardsRouter.post(
   "/cards/:id/revoke",
+  requireAuth,
   ah(async (req: Request, res: Response) => {
     const repo = await getRepo();
     const card = await repo.getCard(req.params.id!);

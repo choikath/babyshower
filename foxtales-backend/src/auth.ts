@@ -23,6 +23,19 @@ const jwks = env.SUPABASE_URL
   : null;
 const hsKey = env.SUPABASE_JWT_SECRET ? new TextEncoder().encode(env.SUPABASE_JWT_SECRET) : null;
 
+// Families opted into anonymous share-link contribution (env.PUBLIC_CONTRIB_FAMILY_IDS).
+// Parsed once at boot; UUIDs are compared case-insensitively.
+const publicContribFamilies = new Set(
+  env.PUBLIC_CONTRIB_FAMILY_IDS.split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean),
+);
+
+/** True when `familyId` is on the public-contributor allowlist (writes need no auth). */
+export function isPublicContribFamily(familyId: string): boolean {
+  return publicContribFamilies.has(familyId.trim().toLowerCase());
+}
+
 /** Verify a Supabase access token and return its `sub` (the auth user id). */
 export async function verifySupabaseJwt(token: string): Promise<string> {
   // Asymmetric (current Supabase default).
@@ -69,6 +82,43 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   } catch {
     res.status(401).json({ error: "invalid_token" });
   }
+}
+
+/**
+ * Like requireAuth, but never 401s. If a valid Bearer token is present it pins
+ * req.userId (so a signed-in member is still attributed); otherwise it leaves
+ * req.userId undefined and continues. Used on the public contributor routes so an
+ * anonymous share-link recorder can post. The route handler must still gate with
+ * authorizeContribution() — optionalAuth only resolves identity, it grants nothing.
+ */
+export async function optionalAuth(req: Request, _res: Response, next: NextFunction): Promise<void> {
+  if (env.DEV_BYPASS_AUTH) {
+    req.userId = env.DEV_USER_ID;
+    next();
+    return;
+  }
+  const header = req.header("authorization") || "";
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  if (match && (jwks || hsKey)) {
+    try {
+      req.userId = await verifySupabaseJwt(match[1]!);
+    } catch {
+      // A bad/expired token on an optional route is treated as anonymous, not rejected.
+    }
+  }
+  next();
+}
+
+/**
+ * Authorization for the public-capable contributor routes. If the target family
+ * is on the public-contributor allowlist, anonymous writes are allowed and no
+ * role check runs. Otherwise this behaves exactly like the old gate: a verified
+ * token is required (401 if absent) and the user must hold one of `roles`.
+ */
+export async function authorizeContribution(req: Request, familyId: string, roles: Role[]): Promise<void> {
+  if (isPublicContribFamily(familyId)) return;
+  if (!req.userId) throw new HttpError(401, "missing_bearer_token");
+  await assertFamilyRole(req.userId, familyId, roles);
 }
 
 /** Asserts the authed user belongs to the family with one of the allowed roles. */
