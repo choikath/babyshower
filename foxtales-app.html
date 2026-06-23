@@ -1094,7 +1094,7 @@ function introScriptText(){
   const n=draft.name?('<b>'+esc(draft.name)+'</b>'):'<b>[your name]</b>';
   const t=draft.title?('<b>“'+esc(draft.title)+'”</b>'):'<b>[book title]</b>';
   const a=draft.author?('<b>'+esc(draft.author)+'</b>'):'<b>[author]</b>';
-  return '<span class="cue-fill">[Personal greeting]…</span> this is '+n+'. We’ll be reading '+t+' by '+a+'. I picked this book because <span class="cue-fill">[ … ]</span>';
+  return '<span class="cue-fill">[Add your personal greeting]…</span> this is '+n+'. We’ll be reading '+t+' by '+a+'. I picked this book because <span class="cue-fill">[ … ]</span>';
 }
 function stepIntro(){
   return `${ILLO.intro}<h2>The intro</h2>
