@@ -1091,23 +1091,18 @@ function stepPractice(){
 }
 
 function introScriptText(){
-  const r=draft.to?('<b>'+esc(draft.to)+'</b>'):'<b>[their name]</b>';
   const n=draft.name?('<b>'+esc(draft.name)+'</b>'):'<b>[your name]</b>';
   const t=draft.title?('<b>“'+esc(draft.title)+'”</b>'):'<b>[book title]</b>';
   const a=draft.author?('<b>'+esc(draft.author)+'</b>'):'<b>[author]</b>';
-  return 'Hi '+r+', this is '+n+'. We’ll be reading '+t+' by '+a+'. I picked this one because <span class="cue-fill">it always made me smile… Hope you enjoy!</span>';
+  return '<span class="cue-fill">[Personal greeting]…</span> this is '+n+'. We’ll be reading '+t+' by '+a+'. I picked this book because <span class="cue-fill">[ … ]</span>';
 }
 function stepIntro(){
-  if(draft.to==null && childNameCache && childNameCache!=='your little one') draft.to=childNameCache;
   return `${ILLO.intro}<h2>The intro</h2>
   <div class="inrow">
     <div class="f"><label class="fld">Book title</label><input class="txt" oninput="draft.title=this.value;updateScript()" placeholder="The Gruffalo" value="${esc(draft.title)}"></div>
     <div class="f"><label class="fld">Author</label><input class="txt" oninput="draft.author=this.value;updateScript()" placeholder="Julia Donaldson" value="${esc(draft.author)}"></div>
   </div>
-  <div class="inrow">
-    <div class="f"><label class="fld">Your name</label><input class="txt" oninput="draft.name=this.value;updateScript()" placeholder="Grandma Jo" value="${esc(draft.name)}"></div>
-    <div class="f"><label class="fld">Who’s this for?</label><input class="txt" oninput="draft.to=this.value;updateScript()" placeholder="Baby Noah" value="${esc(draft.to||'')}"></div>
-  </div>
+  <div class="inrow"><div class="f" style="min-width:200px"><label class="fld">Your name</label><input class="txt" oninput="draft.name=this.value;updateScript()" placeholder="Grandma Jo" value="${esc(draft.name)}"></div></div>
   <div class="script" id="scriptBox"></div>
   <div class="introcue">
     <div class="cue-h">Make it fun &amp; personal ✨</div>
