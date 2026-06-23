@@ -103,19 +103,23 @@ to see the web player.
 
 ## The API
 
-All `/api/*` routes require a Supabase access token (`Authorization: Bearer …`),
-except when `DEV_BYPASS_AUTH=true`.
+Most `/api/*` routes require a Supabase access token (`Authorization: Bearer …`),
+except when `DEV_BYPASS_AUTH=true`. The **contributor write** routes are the
+exception: for a family on the `PUBLIC_CONTRIB_FAMILY_IDS` allowlist they accept
+anonymous, signed-out writes (the public share-link recorder), and a signed-in
+member can still post. **Inbox reads** require a member token, or an email on the
+`ADMIN_EMAILS` allowlist (which can read any family without a membership row).
 
 | Method & path | Who | Purpose |
 | --- | --- | --- |
 | `GET /p/:token` | public | Resolve a tapped card. JSON → signed stream; browser → 302 to player. |
 | `GET /play/:token` | public | Branded web player (or a state message page). |
 | `GET /.well-known/apple-app-site-association` | public | Universal Link + App Clip association. |
-| `POST /api/stories` | member | Create a story; returns signed PUT upload URLs for raw parts. |
-| `POST /api/stories/:id/stitch` | member | Stitch uploaded parts → final MP3 + peaks; marks story `ready`. |
-| `GET /api/stories?familyId=` | member | Family inbox. |
-| `POST /api/cards` | owner | Mint a card + capability token (the URL you write to a tag). |
-| `POST /api/cards/:id/link` | owner | Point a card at a story. |
+| `POST /api/stories` | member · or anyone (public family) | Create a story; returns signed PUT upload URLs for raw parts. |
+| `POST /api/stories/:id/stitch` | member · or anyone (public family) | Stitch uploaded parts → final MP3 + peaks; marks story `ready`. |
+| `GET /api/stories?familyId=` | member · or admin email | Family inbox. |
+| `POST /api/cards` | owner · or anyone (public family) | Mint a card + capability token (the URL you write to a tag). |
+| `POST /api/cards/:id/link` | owner · or anyone (public family) | Point a card at a story. |
 | `POST /api/cards/:id/lock` | owner | Record that the physical tag was write-locked. |
 | `POST /api/cards/:id/revoke` | owner | Kill switch — the token stops resolving. |
 | `GET /api/cards?familyId=` | member | List cards (the "My cards" screen). |

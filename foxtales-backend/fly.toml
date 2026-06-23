@@ -6,6 +6,16 @@ primary_region = "sjc"
 [build]
   dockerfile = "Dockerfile"
 
+# Non-secret runtime config (secrets like SUPABASE_* stay in `fly secrets`).
+[env]
+  # Open the shared prototype family to anonymous share-link contributors so
+  # signed-out visitors at foxtales.app can "Finish & upload". Must match
+  # FAMILY_ID in index.html.
+  PUBLIC_CONTRIB_FAMILY_IDS = "00000000-0000-0000-0000-0000000000a1"
+  # Emails allowed to read the whole inbox at foxtales.app/admin without a
+  # family membership row. Comma-separated for more than one.
+  ADMIN_EMAILS = "choikath@gmail.com"
+
 [http_service]
   internal_port = 8080          # matches PORT=8080 in the Dockerfile / env default
   force_https = true

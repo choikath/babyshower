@@ -1,7 +1,7 @@
 import express, { type NextFunction, type Request, type Response, Router } from "express";
 import { ZodError } from "zod";
 import { env } from "./env.js";
-import { requireAuth, HttpError } from "./auth.js";
+import { HttpError } from "./auth.js";
 import { aasaRouter } from "./routes/aasa.js";
 import { resolverRouter } from "./routes/resolver.js";
 import { playerRouter } from "./routes/player.js";
@@ -43,10 +43,14 @@ app.use(aasaRouter); // /.well-known/apple-app-site-association
 app.use(resolverRouter); // /p/:token
 app.use(playerRouter); // /play/:token
 
-// Authenticated API.
+// API. Auth is declared per-route, not blanket here: contributor writes
+// (POST /stories, /stories/:id/stitch, /cards, /cards/:id/link) use optionalAuth +
+// authorizeContribution so an anonymous share-link recorder can post to a family on
+// the PUBLIC_CONTRIB_FAMILY_IDS allowlist, while reads/owner ops keep requireAuth.
+// A blanket api.use(requireAuth) here would 401 those anonymous writes before their
+// route ran — which is exactly what broke "Finish & upload" for signed-out visitors.
 const api = Router();
 api.use(express.json({ limit: "1mb" }));
-api.use(requireAuth);
 api.use(cardsRouter);
 api.use(storiesRouter);
 app.use("/api", api);

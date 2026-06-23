@@ -27,6 +27,13 @@ const Env = z
     // account — scope it to exactly the families you intend to be public.
     PUBLIC_CONTRIB_FAMILY_IDS: z.string().default(""),
 
+    // Inbox admins: signed-in users whose email is on this list can read any
+    // family's inbox (the dashboard at /admin) without being a member of it.
+    // The companion to PUBLIC_CONTRIB_FAMILY_IDS: anonymous strangers contribute
+    // recordings to the shared family, and these emails are who gets to see them
+    // all. Comma-separated, compared case-insensitively; empty (default) = none.
+    ADMIN_EMAILS: z.string().default(""),
+
     DB_DRIVER: z.enum(["postgres", "memory"]).default("memory"),
     DATABASE_URL: z.string().optional(),
 

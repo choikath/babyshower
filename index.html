@@ -658,9 +658,12 @@ const API={
   async deleteStory(id){ throw new Error('delete_not_wired'); }       // TODO: small backend endpoint
 };
 
-/* auth chip (top-right) reflects sign-in state */
+/* auth chip (top-right) reflects sign-in state. Only shown on the /admin
+   dashboard — the recorder at the site root is anonymous (no sign-in needed to
+   send), so visitors to foxtales.app never see a Sign in button. */
 function _renderAuthChip(){
   const chip=document.getElementById('ftAuthChip'); if(!chip) return;
+  if(!/\/admin\/?$/i.test(location.pathname||'')){ chip.innerHTML=''; return; }
   if(authedEmail()){ chip.innerHTML='<span class="ftc-em" title="'+esc(authedEmail())+'">'+esc(authedEmail())+'</span><button class="ftc-btn" onclick="signOut()">Sign out</button>'; }
   else { chip.innerHTML='<button class="ftc-btn" onclick="ensureAuthed().catch(function(){})">Sign in</button>'; }
 }

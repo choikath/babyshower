@@ -4,7 +4,7 @@ import { dirname, extname, join } from "node:path";
 import { Router, type Request, type Response } from "express";
 import { z } from "zod";
 import { ah } from "../http.js";
-import { assertFamilyRole, authorizeContribution, optionalAuth, requireAuth, HttpError } from "../auth.js";
+import { authorizeContribution, authorizeFamilyRead, optionalAuth, requireAuth, HttpError } from "../auth.js";
 import { ipLimiter } from "../ratelimit.js";
 import { getRepo } from "../repo.js";
 import { getStorage } from "../storage/index.js";
@@ -148,13 +148,13 @@ storiesRouter.post(
   }),
 );
 
-/** The family inbox. Member. */
+/** The family inbox. Member — or an allowlisted admin email (ADMIN_EMAILS). */
 storiesRouter.get(
   "/stories",
   requireAuth,
   ah(async (req: Request, res: Response) => {
     const familyId = z.string().uuid().parse(req.query.familyId);
-    await assertFamilyRole(req.userId!, familyId, ["owner", "member"]);
+    await authorizeFamilyRead(req, familyId);
     const repo = await getRepo();
     const stories = await repo.listStoriesForFamily(familyId);
     res.json({
@@ -180,7 +180,7 @@ storiesRouter.get(
     const repo = await getRepo();
     const story = await repo.getStory(req.params.id!);
     if (!story) throw new HttpError(404, "story_not_found");
-    await assertFamilyRole(req.userId!, story.familyId, ["owner", "member"]);
+    await authorizeFamilyRead(req, story.familyId);
     if (story.status !== "ready" || !story.audioKey) throw new HttpError(409, "story_not_ready");
     const storage = await getStorage();
     const signed = await storage.getSignedStreamUrl(story.audioKey);

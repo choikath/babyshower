@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import { createRemoteJWKSet, jwtVerify } from "jose";
+import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
 import { env } from "./env.js";
 import { getRepo } from "./repo.js";
 import type { Role } from "./types.js";
@@ -9,6 +9,7 @@ declare global {
   namespace Express {
     interface Request {
       userId?: string;
+      userEmail?: string;
     }
   }
 }
@@ -31,18 +32,41 @@ const publicContribFamilies = new Set(
     .filter(Boolean),
 );
 
+// Inbox admins (env.ADMIN_EMAILS) — emails allowed to read any family's inbox.
+const adminEmails = new Set(
+  env.ADMIN_EMAILS.split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean),
+);
+
 /** True when `familyId` is on the public-contributor allowlist (writes need no auth). */
 export function isPublicContribFamily(familyId: string): boolean {
   return publicContribFamilies.has(familyId.trim().toLowerCase());
 }
 
-/** Verify a Supabase access token and return its `sub` (the auth user id). */
-export async function verifySupabaseJwt(token: string): Promise<string> {
+/** True when `email` is on the inbox-admin allowlist (reads any family). */
+export function isAdminEmail(email: string | null | undefined): boolean {
+  return !!email && adminEmails.has(email.trim().toLowerCase());
+}
+
+/** Identity carried by a verified Supabase access token. */
+export interface VerifiedToken {
+  userId: string;
+  email: string | null;
+}
+
+const claimEmail = (payload: JWTPayload): string | null => {
+  const e = (payload as { email?: unknown }).email;
+  return typeof e === "string" && e ? e : null;
+};
+
+/** Verify a Supabase access token and return its `sub` (the auth user id) + email. */
+export async function verifySupabaseJwt(token: string): Promise<VerifiedToken> {
   // Asymmetric (current Supabase default).
   if (jwks) {
     try {
       const { payload } = await jwtVerify(token, jwks);
-      if (payload.sub) return String(payload.sub);
+      if (payload.sub) return { userId: String(payload.sub), email: claimEmail(payload) };
     } catch (err) {
       // A token signed with the legacy secret won't match the JWKS — try that next.
       if (!hsKey) throw err;
@@ -51,7 +75,7 @@ export async function verifySupabaseJwt(token: string): Promise<string> {
   // Legacy symmetric secret.
   if (hsKey) {
     const { payload } = await jwtVerify(token, hsKey);
-    if (payload.sub) return String(payload.sub);
+    if (payload.sub) return { userId: String(payload.sub), email: claimEmail(payload) };
   }
   throw new Error("no_jwt_verification_method_configured");
 }
@@ -77,7 +101,9 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     return;
   }
   try {
-    req.userId = await verifySupabaseJwt(match[1]!);
+    const v = await verifySupabaseJwt(match[1]!);
+    req.userId = v.userId;
+    req.userEmail = v.email ?? undefined;
     next();
   } catch {
     res.status(401).json({ error: "invalid_token" });
@@ -101,7 +127,9 @@ export async function optionalAuth(req: Request, _res: Response, next: NextFunct
   const match = header.match(/^Bearer\s+(.+)$/i);
   if (match && (jwks || hsKey)) {
     try {
-      req.userId = await verifySupabaseJwt(match[1]!);
+      const v = await verifySupabaseJwt(match[1]!);
+      req.userId = v.userId;
+      req.userEmail = v.email ?? undefined;
     } catch {
       // A bad/expired token on an optional route is treated as anonymous, not rejected.
     }
@@ -119,6 +147,18 @@ export async function authorizeContribution(req: Request, familyId: string, role
   if (isPublicContribFamily(familyId)) return;
   if (!req.userId) throw new HttpError(401, "missing_bearer_token");
   await assertFamilyRole(req.userId, familyId, roles);
+}
+
+/**
+ * Read authorization for a family's inbox. An allowlisted admin email (ADMIN_EMAILS)
+ * may read any family without a membership row — that's how the prototype dashboard
+ * owner sees every stranger's contribution to the shared family. Everyone else must
+ * be a member of that family.
+ */
+export async function authorizeFamilyRead(req: Request, familyId: string): Promise<void> {
+  if (isAdminEmail(req.userEmail)) return;
+  if (!req.userId) throw new HttpError(401, "missing_bearer_token");
+  await assertFamilyRole(req.userId, familyId, ["owner", "member"]);
 }
 
 /** Asserts the authed user belongs to the family with one of the allowed roles. */
