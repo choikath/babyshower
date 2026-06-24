@@ -35,9 +35,9 @@
         <string>audio</string>
     </array>
 
-    <!-- Resolver origin. Override per build/environment; falls back to
-         https://foxtales.app when absent (see FoxTalesConfig). -->
+    <!-- Resolver origin — the backend that serves /p/ (currently the Fly.io
+         deployment). Change this if the backend moves to a custom domain. -->
     <key>FoxTalesBaseURL</key>
-    <string>https://foxtales.app</string>
+    <string>https://foxtales-backend.fly.dev</string>
 </dict>
 </plist>

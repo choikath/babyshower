@@ -14,6 +14,6 @@ public enum FoxTalesConfig {
            let url = URL(string: raw) {
             return url
         }
-        return URL(string: "https://foxtales.app")!
+        return URL(string: "https://foxtales-backend.fly.dev")!
     }
 }
