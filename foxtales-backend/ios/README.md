@@ -62,8 +62,8 @@ Local Experience (below).
 | What | Where | Default |
 | --- | --- | --- |
 | Bundle IDs | `project.yml` (`app.foxtales.ios`, `…​.Clip`) | match backend `IOS_BUNDLE_ID` / `APPCLIP_BUNDLE_ID` |
-| Associated domain | `App/FoxTales.entitlements` (`applinks:`), `Clip/FoxTalesClip.entitlements` (`appclips:`) | `foxtales.app` |
-| Resolver origin | `FoxTalesBaseURL` in each `Info.plist` (read by `FoxTalesConfig`) | `https://foxtales.app` |
+| Associated domain | `App/FoxTales.entitlements` (`applinks:`), `Clip/FoxTalesClip.entitlements` (`appclips:`) | `foxtales-backend.fly.dev` |
+| Resolver origin | `FoxTalesBaseURL` in each `Info.plist` (read by `FoxTalesConfig`) | `https://foxtales-backend.fly.dev` |
 | Team / signing | Xcode → Signing & Capabilities, or `DEVELOPMENT_TEAM` in `project.yml` | unset |
 
 Change the domain in **three** places consistently: both entitlements files and
@@ -77,7 +77,7 @@ your deployed AASA host. The backend already serves a correct
   (`FoxTalesCore/StoryService.swift`) and gets `{ story, stream:{ signedURL } }`.
   Browsers send `text/html` and are 302'd to the web player instead — that single
   content-negotiation fork is the iOS-vs-Android split (`src/routes/resolver.ts`).
-- The tag stores only `https://foxtales.app/p/<token>`; the signed MP3 URL is
+- The tag stores only `https://foxtales-backend.fly.dev/p/<token>`; the signed MP3 URL is
   short-lived and never on the tag.
 - Token shape (22-char base62) is validated in `CardLink.swift` to mirror
   `src/token.ts`.
@@ -89,7 +89,7 @@ product/architecture narrative.
 
 Use a **Local Experience** (Settings → Developer → Local Experience, or the
 scheme's *App Clip → Local Experience* on a connected device): register URL
-prefix `https://foxtales.app/p/` and the clip's bundle ID, then tap a real tag
+prefix `https://foxtales-backend.fly.dev/p/` and the clip's bundle ID, then tap a real tag
 (or scan a generated App Clip code). This exercises the launch path before the
 App Store experience is registered in App Store Connect.
 
@@ -104,8 +104,8 @@ Safari or the full app, and the clip is still the fastest screen-on play.
 
 - [x] Shared player module, both target entry points, deep-link routing.
 - [x] Project definition, entitlements, Info.plists, AASA already served by backend.
-- [ ] Generate + build in Xcode; resolve any SwiftPM/signing nits on a Mac.
+- [x] Generate + build in Xcode; clip resolves a real card and plays it in the **Simulator** (foreground playback validated).
 - [ ] **Run the background-audio spike** (`SPIKE.md`) on a physical device.
-- [ ] Register the App Clip experience in App Store Connect (prefix `https://foxtales.app/p/`).
+- [ ] Register the App Clip experience in App Store Connect (use the final card domain; a custom domain is recommended over `*.fly.dev`).
 - [ ] App icon art (placeholder `AppIcon` set is empty).
 - [ ] Full-app features that justify it beyond the clip: offline, push, recording, child mode.

@@ -11,17 +11,34 @@ Time-box: **~1 day.** Everything the spike needs is already wired
 (`UIBackgroundModes: [audio]` in `Clip/Info.plist`, the `.playback` session in
 `FoxTalesCore/NowPlaying.swift`).
 
+> **Where this stands:** foreground playback is already validated — the clip
+> resolves a real card against the live backend and plays it in the **Simulator**.
+> The Simulator does *not* faithfully reproduce screen-lock / background-audio
+> suspension, so the question below is still open and needs a physical device.
+> Web searches confirm the general iOS rule (`.playback` + the `audio` background
+> mode keeps audio alive when locked) but turn up **no App Clip-specific answer** —
+> Apple doesn't document it, so this hands-on test is the only way to settle it.
+
 ## Setup
 
 1. A physical iPhone (not the Simulator — background/lock behavior differs).
 2. `cd foxtales-backend/ios && make open`; set your team for **both** targets.
-3. A reachable backend with at least one **ready** story and a card token. Point
-   `FoxTalesBaseURL` (in `Clip/Info.plist`) at that origin if it isn't
-   `foxtales.app` yet.
-4. Register a **Local Experience** on the device (Settings → Developer → Local
-   Experience): URL prefix `https://foxtales.app/p/`, the clip's bundle ID
-   `app.foxtales.ios.Clip`. (Or build & run the `FoxTalesClip` scheme directly
-   and open the capability URL.)
+3. A reachable backend with at least one **ready** story and a card token.
+   `FoxTalesBaseURL` (in `Clip/Info.plist`) already points at the live backend
+   (`https://foxtales-backend.fly.dev`); change it only if the backend moves.
+4. **A paid Apple Developer Program membership.** App Clip targets carry the
+   `parent-application-identifiers` + associated-domains capabilities, which do
+   **not** provision on a free Apple ID — so the clip can't be run on a device
+   without it. (The full app could, but that wouldn't test the clip's sandbox.)
+5. Get the clip running on the device by either:
+   - **Direct run — simplest, and the exact path we validated in the Simulator:**
+     select the `FoxTalesClip` scheme, then Edit Scheme → Run → Arguments → set
+     env var `_XCAppClipURL` to a real card URL
+     (`https://foxtales-backend.fly.dev/p/<token>`), pick the connected iPhone,
+     and Run. The story autoplays.
+   - **Local Experience — closest to a real tap:** Settings → Developer → Local
+     Experience, URL prefix `https://foxtales-backend.fly.dev/p/`, clip bundle ID
+     `app.foxtales.ios.Clip`, then tap a real tag.
 
 ## The test
 

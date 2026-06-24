@@ -2,11 +2,13 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <!-- App Clip launch association (matches the AASA `appclips` section).
-         Must match the host serving the AASA file. -->
+    <!-- App Clip launch association (matches the AASA `appclips` section). Must
+         match the host serving the AASA file — currently the Fly.io backend.
+         Local-Experience testing (see SPIKE.md) ignores this; it only matters for
+         a real tap-to-launch and the App Store Connect experience. -->
     <key>com.apple.developer.associated-domains</key>
     <array>
-        <string>appclips:foxtales.app</string>
+        <string>appclips:foxtales-backend.fly.dev</string>
     </array>
 
     <!-- Declares the parent app this clip belongs to. AppIdentifierPrefix is the

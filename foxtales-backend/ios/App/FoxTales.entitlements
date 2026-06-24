@@ -2,11 +2,13 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <!-- Universal Links for the full app on /p/* (matches the AASA `applinks`
-         section served at /.well-known/apple-app-site-association). -->
+    <!-- Universal Links for the full app on /p/* — must match the host serving
+         the AASA at /.well-known/apple-app-site-association (currently the Fly.io
+         backend). For an App Store launch, prefer a custom domain you control and
+         align this, the clip entitlement, and the card URLs together. -->
     <key>com.apple.developer.associated-domains</key>
     <array>
-        <string>applinks:foxtales.app</string>
+        <string>applinks:foxtales-backend.fly.dev</string>
     </array>
 </dict>
 </plist>
