@@ -403,6 +403,13 @@ body.storyteller .closex{display:none!important}
       <button class="btn icon" style="margin-top:12px" onclick="makeLink()">🔗 Create a shareable link</button>
     </div>
 
+    <div class="card" id="brandingCard" style="display:none">
+      <span class="eyebrow">Audio branding · admin</span>
+      <h2 style="margin-top:4px">Intro &amp; outro audio</h2>
+      <div class="sub">Three shared clips that wrap every recorded story: <b>jingle → personal greeting → intro → story → outro</b>. Any slot you leave empty is simply skipped. MP3 or M4A.</div>
+      <div id="brandSlots"></div>
+    </div>
+
     <div class="card">
       <span class="eyebrow">Inbox</span>
       <h2 style="margin-top:4px">Stories that arrived</h2>
@@ -455,6 +462,19 @@ const SPACE_ID  = 'demo';         // the single shared family space for this san
    and a capability card is minted so the story can be tapped to play. */
 const API_BASE  = 'https://foxtales-backend.fly.dev';        // your deployed backend
 const FAMILY_ID = '00000000-0000-0000-0000-0000000000a1';    // created by foxtales-bootstrap-family.sql (must match)
+
+/* ===== Audio branding (admin-only) =====
+   A single, shared set of three clips that wrap every recorded STORY:
+   jingle -> personal greeting (recorded) -> intro -> story -> outro.
+   They live in a PUBLIC Supabase Storage bucket so any (anonymous) recorder's
+   browser can fetch them at stitch time; a Row-Level-Security policy lets ONLY
+   the admin email below write/replace/remove them. Run foxtales-branding-setup.sql
+   once to create the bucket + policies. Uploads are transcoded to mono MP3 and
+   stored at fixed keys, so the mixer just fetches three known URLs (404 = skip). */
+const ADMIN_EMAILS = ['choikath@gmail.com'];                  // only these see + manage branding
+const BRAND_BUCKET = 'branding';                             // PUBLIC bucket (read), RLS-gated writes
+const BRAND_KEYS   = { jingle:'jingle.mp3', intro:'intro.mp3', outro:'outro.mp3' };
+function isAdminUser(){ var e=(authedEmail()||'').trim().toLowerCase(); return ADMIN_EMAILS.indexOf(e)>=0; }
 
 /* ===== local demo store (fallback) ===== */
 const SHARED=true,mem={};
@@ -675,6 +695,111 @@ const API={
   async deleteStory(id){ throw new Error('delete_not_wired'); }       // TODO: small backend endpoint
 };
 
+/* ===== Audio branding store (admin upload + mixer fetch) =====
+   Writes go through the authenticated Supabase client (RLS allows only the admin
+   email); reads use the bucket's PUBLIC url so anonymous recorders can fetch. */
+const _brandBufs={};   // slot -> decoded AudioBuffer | null (null = known-absent), busted on upload/remove
+function brandPublicUrl(key){ try{ return sb.storage.from(BRAND_BUCKET).getPublicUrl(key).data.publicUrl; }catch(e){ return ''; } }
+/** Which of the three slots are currently populated. Uses a bucket listing (public bucket → readable). */
+async function brandStatus(){
+  const out={jingle:false,intro:false,outro:false};
+  if(!sb) return out;
+  try{
+    const r=await sb.storage.from(BRAND_BUCKET).list('',{limit:100});
+    if(!r.error&&r.data){ const names=r.data.map(function(o){return o.name;}); ['jingle','intro','outro'].forEach(function(s){ out[s]=names.indexOf(BRAND_KEYS[s])>=0; }); }
+  }catch(e){}
+  return out;
+}
+/** Fetch + decode one branded clip into an AudioBuffer for the mixer (cached). Returns null if absent. */
+async function brandBuffer(ctx,slot){
+  if(slot in _brandBufs) return _brandBufs[slot];
+  if(!sb){ _brandBufs[slot]=null; return null; }
+  try{
+    const url=brandPublicUrl(BRAND_KEYS[slot]); if(!url){ _brandBufs[slot]=null; return null; }
+    const r=await fetch(url,{cache:'no-store'});
+    if(!r.ok){ _brandBufs[slot]=null; return null; }
+    const ab=await r.arrayBuffer();
+    if(!ab||ab.byteLength<64){ _brandBufs[slot]=null; return null; }
+    const buf=await ctx.decodeAudioData(ab);
+    _brandBufs[slot]=buf; return buf;
+  }catch(e){ _brandBufs[slot]=null; return null; }
+}
+/** Decode any mp3/m4a file and re-encode to mono MP3 (128k) so reads are universal + ext is fixed. */
+async function transcodeToMp3(file){
+  const c=ac();
+  const buf=await c.decodeAudioData(await file.arrayBuffer());
+  const i16=floatToInt16(toMono(buf));
+  if(typeof lamejs==='undefined'||!lamejs.Mp3Encoder||window.__lameFailed) throw new Error('mp3_encoder_unavailable');
+  const enc=new lamejs.Mp3Encoder(1,buf.sampleRate,128); const block=1152; const chunks=[];
+  for(let i=0;i<i16.length;i+=block){const cc=i16.subarray(i,i+block);const mm=enc.encodeBuffer(cc);if(mm.length>0)chunks.push(new Uint8Array(mm));}
+  const fl=enc.flush(); if(fl.length>0)chunks.push(new Uint8Array(fl));
+  if(!chunks.length) throw new Error('empty_encode');
+  return new Blob(chunks,{type:'audio/mpeg'});
+}
+async function brandHandle(ev,slot){
+  const f=ev.target&&ev.target.files&&ev.target.files[0]; if(!f){return;} ev.target.value='';
+  if(!isAdminUser()){ toast('Admins only'); return; }
+  if(!BRAND_KEYS[slot]){ return; }
+  toast('Processing the '+slot+'…');
+  let blob; try{ blob=await transcodeToMp3(f); }catch(e){ console.error('[FoxTales] transcode failed:',e); toast('Could not read that audio file — try an MP3 or M4A'); return; }
+  try{
+    const up=await sb.storage.from(BRAND_BUCKET).upload(BRAND_KEYS[slot],blob,{contentType:'audio/mpeg',upsert:true,cacheControl:'60'});
+    if(up.error) throw up.error;
+  }catch(e){ console.error('[FoxTales] branding upload failed:',e); toast('Upload failed: '+((e&&e.message)||'check the bucket + policy')); return; }
+  delete _brandBufs[slot];
+  toast(slot.charAt(0).toUpperCase()+slot.slice(1)+' saved ✓');
+  renderBrandingPanel();
+}
+async function brandDelete(slot){
+  if(!isAdminUser()){ toast('Admins only'); return; }
+  if(!confirm('Remove the '+slot+'? New stories will stop including it.')) return;
+  try{ const rm=await sb.storage.from(BRAND_BUCKET).remove([BRAND_KEYS[slot]]); if(rm.error) throw rm.error; }
+  catch(e){ console.error('[FoxTales] branding remove failed:',e); toast('Could not remove it'); return; }
+  delete _brandBufs[slot];
+  toast('Removed the '+slot);
+  renderBrandingPanel();
+}
+async function brandPreview(slot){
+  stopAll();
+  const c=ac(); if(c.state==='suspended'){ try{ await c.resume(); }catch(e){} }
+  const buf=await brandBuffer(c,slot); if(!buf){ toast('Nothing to preview'); return; }
+  const s=c.createBufferSource(); s.buffer=cloneInto(c,buf); s.connect(c.destination);
+  s.onended=function(){ if(waKey==='brand_'+slot) stopAll(); };
+  s.start(); waSrc=s; waKey='brand_'+slot;
+}
+/* the admin-only branding card (rendered into the /admin dashboard) */
+function brandSlotHTML(slot,label,desc,present){
+  return '<div class="brand-slot">'
+    +'<div class="bs-meta"><div class="bs-name">'+label+'</div><div class="bs-desc">'+desc+'</div></div>'
+    +'<div class="bs-state">'+(present?'<span class="bs-ok">Uploaded ✓</span>':'<span class="bs-none">Not set</span>')+'</div>'
+    +'<div class="bs-ctl">'
+    +  (present?'<button class="btn icon" onclick="brandPreview(\''+slot+'\')">▶ Preview</button>':'')
+    +  '<button class="btn icon" onclick="document.getElementById(\'brandFile_'+slot+'\').click()">'+(present?'Replace':'Upload')+'</button>'
+    +  (present?'<button class="btn icon" onclick="brandDelete(\''+slot+'\')">Remove</button>':'')
+    +  '<input id="brandFile_'+slot+'" type="file" accept="audio/mpeg,audio/mp4,audio/x-m4a,.mp3,.m4a" style="display:none" onchange="brandHandle(event,\''+slot+'\')">'
+    +'</div></div>';
+}
+async function renderBrandingPanel(){
+  const card=document.getElementById('brandingCard'); if(!card) return;
+  if(!ftIsAdminPath()||!SB_ON||!sb){ card.style.display='none'; return; }   // only on /admin, only when Supabase is wired
+  const slots=document.getElementById('brandSlots');
+  await _refreshSession();
+  if(!authedEmail()){
+    card.style.display='block';
+    if(slots) slots.innerHTML='<div class="sub" style="margin-top:10px">Sign in as the admin to manage these. <button class="btn ghost sm" onclick="ensureAuthed().then(renderBrandingPanel).catch(function(){})">Sign in</button></div>';
+    return;
+  }
+  if(!isAdminUser()){ card.style.display='none'; return; }                   // signed in, but not the admin → hidden entirely
+  card.style.display='block';
+  if(slots) slots.innerHTML='<div class="sub" style="margin-top:10px">Loading…</div>';
+  let present={jingle:false,intro:false,outro:false};
+  try{ present=await brandStatus(); }catch(e){}
+  if(slots) slots.innerHTML=
+    brandSlotHTML('jingle','Intro jingle','Plays first; fades out as the greeting begins.',present.jingle)
+   +brandSlotHTML('intro','Intro','Plays just after the personal greeting; fades down into the story.',present.intro)
+   +brandSlotHTML('outro','Outro','Fades in under the last few seconds of the story and closes it out.',present.outro);
+}
+
 /* auth chip (top-right) reflects sign-in state. Only shown on the /admin
    dashboard — the recorder at the site root is anonymous (no sign-in needed to
    send), so visitors to foxtales.app never see a Sign in button. */
@@ -712,7 +837,17 @@ function _renderAuthChip(){
    +'.tapcard-label{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8F7344;margin-bottom:8px}'
    +'.tapcard-url{display:block;word-break:break-all;font-size:13px;color:#26231E;text-decoration:none;border:1px dashed #cdbf9f;border-radius:3px;padding:9px 10px;background:#FBFAF7}'
    +'.tapcard-url:hover{border-color:#A88A5C;background:#fff}'
-   +'.tapcard-hint{font-size:11px;color:#6b6256;line-height:1.5;margin-top:8px}';
+   +'.tapcard-hint{font-size:11px;color:#6b6256;line-height:1.5;margin-top:8px}'
+   +'#brandingCard .eyebrow{color:#8F7344}'
+   +'.brand-slot{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 0;border-top:1px solid #efe9dd}'
+   +'.brand-slot:first-child{border-top:none}'
+   +'.brand-slot .bs-meta{flex:1;min-width:170px}'
+   +'.brand-slot .bs-name{font-weight:600;color:#26231E}'
+   +'.brand-slot .bs-desc{font-size:12px;color:#6b6256;margin-top:2px;line-height:1.45}'
+   +'.brand-slot .bs-state{min-width:84px;text-align:right}'
+   +'.brand-slot .bs-ok{color:#4b7a3e;font-size:12px;font-weight:600}'
+   +'.brand-slot .bs-none{color:#9a8f7d;font-size:12px}'
+   +'.brand-slot .bs-ctl{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}';
   var st=document.createElement('style'); st.textContent=css; document.head.appendChild(st);
   var chip=document.createElement('div'); chip.id='ftAuthChip'; document.body.appendChild(chip);
   var modal=document.createElement('div'); modal.id='ftAuthModal'; modal.setAttribute('data-step','email');
@@ -1403,28 +1538,155 @@ async function chimeMono(ctx){
   }catch(e){}
   return null;
 }
-/* ---------- merge: trim every take, tuck the chime between parts ---------- */
+/* ====================================================================
+   STORY MIXER — a small multi-track timeline with crossfades.
+   Order: jingle -> recorded greeting -> intro -> story parts -> recorded
+   outro -> outro jingle. The jingle/intro/outro are the three shared admin
+   uploads; any missing one is skipped (an all-empty set === today's output).
+   Voice notes never get branding. Every timing/fade value is a constant below.
+==================================================================== */
+const MIX = {
+  GAP:             0.35,  // gap between story parts (and story<->recorded-outro)
+  JINGLE_LEAD:     5.0,   // greeting starts this many secs after the jingle starts
+  JINGLE_FADE:     5.0,   // jingle fades to silence over this long once the greeting begins
+  GREET_INTRO_GAP: 0.5,   // branded intro starts this long after the greeting ends
+  INTRO_FADE_OUT:  3.0,   // last N secs of the branded intro fade out
+  INTRO_BOOK_GAP:  0.0,   // gap between the branded intro and the story (its fade covers it)
+  OUTRO_LEAD:      5.0,   // outro jingle starts this many secs before the story ends (overlap)
+  OUTRO_FADE_IN:   6.0,   // outro jingle fades in over this long
+  OUTRO_TAIL_FADE: 3.0    // outro jingle fades out over its last N secs
+};
+function _rms(f){let s=0;for(let i=0;i<f.length;i++)s+=f[i]*f[i];return Math.sqrt(s/Math.max(1,f.length));}
+function _peak(f){let p=0;for(let i=0;i<f.length;i++){const a=f[i]<0?-f[i]:f[i];if(a>p)p=a;}return p;}
+function cloneInto(ctx,buf){const out=ctx.createBuffer(1,buf.length,buf.sampleRate);out.getChannelData(0).set(buf.getChannelData(0));return out;}
+/** Level-match a branded clip to the voice loudness ("normalize like voice"), guarding against clipping. */
+function scaleToVoice(ctx,buf,voiceRMS){
+  const f=buf.getChannelData(0); const r=_rms(f); if(r<1e-5||voiceRMS<=0) return buf;
+  let g=voiceRMS/r; if(g<0.25)g=0.25; if(g>4)g=4;
+  const pk=_peak(f); if(pk*g>0.99) g=0.99/pk;
+  if(Math.abs(g-1)<0.02) return buf;
+  const out=ctx.createBuffer(1,buf.length,buf.sampleRate); const d=out.getChannelData(0);
+  for(let i=0;i<f.length;i++)d[i]=f[i]*g; return out;
+}
+/** Decode one recorded take to a trimmed mono AudioBuffer (or null). */
+async function takeBuf(ctx,take){
+  if(!take||!take.dataUrl) return null;
+  let raw; try{ raw=await ctx.decodeAudioData(dataUrlToAB(take.dataUrl)); }catch(e){ return null; }
+  const m=toMono(raw); const r=trimRange(m,raw.sampleRate); const sl=m.slice(r.s,r.e);
+  const out=ctx.createBuffer(1,Math.max(1,sl.length),raw.sampleRate); out.getChannelData(0).set(sl); return out;
+}
+async function chimeBuf(ctx){ const m=await chimeMono(ctx); if(!m||!m.length) return null; const b=ctx.createBuffer(1,m.length,ctx.sampleRate); b.getChannelData(0).set(m); return b; }
+/**
+ * Build the placement plan for the current draft on `ctx`:
+ *   { placements:[{buffer,start,gainPoints}], total }   (seconds)
+ * gainPoints are master-relative {t,v} fade breakpoints for that segment (null = full volume).
+ */
+async function assembleStory(ctx,opts){
+  const M=MIX;
+  const useBrand = !!(opts&&opts.wantBranded) && !draft.isVoiceNote;
+  const jingle = useBrand ? await brandBuffer(ctx,'jingle') : null;
+  const introB = useBrand ? await brandBuffer(ctx,'intro')  : null;
+  const outroB = useBrand ? await brandBuffer(ctx,'outro')  : null;
+  const greet  = await takeBuf(ctx,draft.intro);
+  const parts=[]; for(let i=0;i<draft.story.length;i++){ const b=await takeBuf(ctx,draft.story[i]); if(b)parts.push(b); }
+  const recOutro = await takeBuf(ctx,draft.outro);
+  const chime = (parts.length>1)?await chimeBuf(ctx):null;
+  if(!parts.length) throw new Error('empty');
+
+  // voice loudness reference (greeting + parts + recorded outro) to match branded clips against
+  let vSum=0,vN=0; const acc=function(b){ if(!b)return; const f=b.getChannelData(0); for(let i=0;i<f.length;i++)vSum+=f[i]*f[i]; vN+=f.length; };
+  acc(greet); parts.forEach(acc); acc(recOutro); const voiceRMS = vN? Math.sqrt(vSum/vN) : 0.1;
+  const Jn = jingle ? scaleToVoice(ctx,jingle,voiceRMS) : null;
+  const In = introB ? scaleToVoice(ctx,introB,voiceRMS) : null;
+  const On = outroB ? scaleToVoice(ctx,outroB,voiceRMS) : null;
+
+  const placements=[]; const push=function(buffer,start,gainPoints){ placements.push({buffer:buffer,start:start,gainPoints:gainPoints||null}); };
+
+  // 1) intro jingle, and where the greeting begins
+  let greetStart;
+  if(Jn){
+    if(greet){ push(Jn,0,[{t:0,v:1},{t:M.JINGLE_LEAD,v:1},{t:M.JINGLE_LEAD+M.JINGLE_FADE,v:0}]); greetStart=M.JINGLE_LEAD; }
+    else { const jd=Jn.duration, fs=Math.max(0,jd-M.JINGLE_FADE); push(Jn,0,[{t:0,v:1},{t:fs,v:1},{t:jd,v:0}]); greetStart=jd; }
+  } else greetStart=0;
+
+  // 2) recorded greeting (the recorded "intro" take)
+  let afterGreet;
+  if(greet){ push(greet,greetStart,null); afterGreet=greetStart+greet.duration; }
+  else afterGreet=greetStart;
+
+  // 3) branded intro (fades out over its tail)
+  let bookStart;
+  if(In){
+    const introStart = afterGreet + (greet? M.GREET_INTRO_GAP : (Jn? M.GAP : 0));
+    const id=In.duration, fo=Math.max(0,id-M.INTRO_FADE_OUT);
+    push(In,introStart,[{t:introStart,v:1},{t:introStart+fo,v:1},{t:introStart+id,v:0}]);
+    bookStart=introStart+id+M.INTRO_BOOK_GAP;
+  } else {
+    bookStart = afterGreet + ((greet||Jn)? M.GAP : 0);
+  }
+
+  // 4) story parts (chime + gaps between), then the recorded outro
+  let t=bookStart;
+  for(let i=0;i<parts.length;i++){
+    if(i>0){ t+=M.GAP; if(chime){ push(chime,t,null); t+=chime.duration+M.GAP; } }
+    push(parts[i],t,null); t+=parts[i].duration;
+  }
+  if(recOutro){ t+=M.GAP; push(recOutro,t,null); t+=recOutro.duration; }
+  const bookEnd=t;
+
+  // 5) outro jingle — overlaps the tail of the story: fades in, holds, then fades out
+  let total=bookEnd;
+  if(On){
+    let os=Math.max(bookStart, bookEnd-M.OUTRO_LEAD); if(os<0)os=0;
+    const od=On.duration;
+    const fiEnd=os+Math.min(M.OUTRO_FADE_IN,od);
+    let foStart=os+od-M.OUTRO_TAIL_FADE; if(foStart<fiEnd)foStart=fiEnd;
+    push(On,os,[{t:os,v:0},{t:fiEnd,v:1},{t:foStart,v:1},{t:os+od,v:0}]);
+    total=Math.max(total,os+od);
+  }
+  return {placements:placements,total:total};
+}
+/** Apply a fade envelope (master-relative breakpoints) to a gain node, offset by t0. */
+function schedGain(g,t0,pts){
+  let last=-1;
+  for(let i=0;i<pts.length;i++){
+    let at=t0+pts[i].t; if(at<0)at=0; if(at<=last)at=last+0.001; last=at;
+    if(i===0) g.gain.setValueAtTime(pts[i].v,at); else g.gain.linearRampToValueAtTime(pts[i].v,at);
+  }
+}
+/** Schedule a plan onto a context (offline render OR live preview), offset by t0. */
+function schedulePlacements(ctx,placements,t0){
+  placements.forEach(function(pl){
+    const node=ctx.createBufferSource(); node.buffer=cloneInto(ctx,pl.buffer);
+    const g=ctx.createGain(); node.connect(g); g.connect(ctx.destination);
+    const base=Math.max(0,t0+pl.start);
+    if(pl.gainPoints&&pl.gainPoints.length) schedGain(g,t0,pl.gainPoints); else g.gain.setValueAtTime(1,base);
+    node.start(base);
+  });
+}
+/* ---------- merge: build the timeline, render it offline, encode one MP3 ---------- */
 async function mergeTracks(){
-  const Ctx=window.AudioContext||window.webkitAudioContext;let ctx;try{ctx=new Ctx({sampleRate:44100});}catch(e){ctx=new Ctx();}
-  const sr=ctx.sampleRate;const segs=[];
-  async function add(take){if(!take)return;const buf=await ctx.decodeAudioData(dataUrlToAB(take.dataUrl));const m=toMono(buf);const r=trimRange(m,sr);segs.push(m.slice(r.s,r.e));}
-  await add(draft.intro);
-  const chm=(draft.story.length>1)?await chimeMono(ctx):null;
-  for(let i=0;i<draft.story.length;i++){if(i>0&&chm)segs.push(chm);await add(draft.story[i]);}
-  await add(draft.outro);
-  if(!segs.length)throw new Error('empty');
-  const gapLen=Math.floor(sr*0.35);
-  let total=0;segs.forEach((m,i)=>{total+=m.length;if(i<segs.length-1)total+=gapLen;});
-  const all=new Float32Array(total);let off=0;segs.forEach((m,i)=>{all.set(m,off);off+=m.length;if(i<segs.length-1)off+=gapLen;});
-  const i16=floatToInt16(all);
-  const secs=Math.round(total/sr);
+  const Ctx=window.AudioContext||window.webkitAudioContext; let mc; try{mc=new Ctx({sampleRate:44100});}catch(e){mc=new Ctx();}
+  const sr=mc.sampleRate;
+  const plan=await assembleStory(mc,{wantBranded:true});
+  const OAC=window.OfflineAudioContext||window.webkitOfflineAudioContext;
+  const oc=new OAC(1,Math.max(1,Math.ceil((plan.total+0.25)*sr)),sr);
+  schedulePlacements(oc,plan.placements,0);
+  const rendered=await oc.startRendering();
+  try{ mc.close(); }catch(e){}
+  const mono=rendered.getChannelData(0);
+  let pk=0; for(let i=0;i<mono.length;i++){const a=mono[i]<0?-mono[i]:mono[i];if(a>pk)pk=a;}
+  if(pk>0.99){const k=0.99/pk; for(let i=0;i<mono.length;i++)mono[i]*=k;}   // master peak guard against overlap clipping
+  const i16=floatToInt16(mono);
+  const secs=Math.round(rendered.duration);
   const MP3_OK=(typeof lamejs!=='undefined'&&lamejs.Mp3Encoder&&!window.__lameFailed);
   if(MP3_OK){try{return {blob:encodeMp3(i16,sr),ext:'mp3',secs:secs};}catch(e){return {blob:encodeWav(i16,sr),ext:'wav',secs:secs};}}
   return {blob:encodeWav(i16,sr),ext:'wav',secs:secs};
 }
-/* ---------- "hear it as they will" — stitched preview, no re-encoding ---------- */
-let prevSrcs=[],prevOn=false;
+/* ---------- "hear it as they will" — the same timeline, played live ---------- */
+let prevSrcs=[],prevOn=false,_prevTimer=null;
 function stopPreview(){
+  if(_prevTimer){clearTimeout(_prevTimer);_prevTimer=null;}
   prevSrcs.forEach(function(s){try{s.onended=null;s.stop();}catch(e){}});
   prevSrcs=[];prevOn=false;
   const b=document.getElementById('prevBtn');
@@ -1436,38 +1698,22 @@ async function previewFinal(btn){
   if(!draft.story.length){toast('Record at least one part first');return;}
   btn.disabled=true;btn.textContent='\u23F3 Getting it ready\u2026';
   const c=ac(); if(c.state==='suspended'){try{await c.resume();}catch(e){}}
-  const bufs=[];
-  async function add(take){
-    if(!take)return;
-    const ck='draft_'+take.k;
-    if(!_bufCache[ck])_bufCache[ck]=await c.decodeAudioData(dataUrlToAB(take.dataUrl));
-    const b0=_bufCache[ck];
-    const m=toMono(b0);const r=trimRange(m,b0.sampleRate);
-    bufs.push({buf:b0,off:r.s/b0.sampleRate,dur:(r.e-r.s)/b0.sampleRate});
-  }
-  let chB=null;
-  try{
-    await add(draft.intro);
-    if(draft.story.length>1&&draft.chime){
-      const m=await chimeMono(c);
-      if(m){const b2=c.createBuffer(1,m.length,c.sampleRate);b2.getChannelData(0).set(m);chB={buf:b2,off:0,dur:m.length/c.sampleRate};}
-    }
-    for(let i=0;i<draft.story.length;i++){if(i>0&&chB)bufs.push(chB);await add(draft.story[i]);}
-    await add(draft.outro);
-  }catch(e){
-    toast('Could not build the preview');
-    btn.disabled=false;btn.textContent=btn.getAttribute('data-icon');return;
-  }
-  if(!bufs.length){btn.disabled=false;btn.textContent=btn.getAttribute('data-icon');return;}
-  let t=c.currentTime+0.08;const GAP=0.35;
-  bufs.forEach(function(b0,i){
-    const s=c.createBufferSource();s.buffer=b0.buf;s.connect(c.destination);
-    s.start(t,b0.off,Math.max(0.01,b0.dur));
-    t+=b0.dur+GAP;
-    prevSrcs.push(s);
-    if(i===bufs.length-1)s.onended=function(){if(prevOn)stopPreview();};
+  let plan;
+  try{ plan=await assembleStory(c,{wantBranded:true}); }
+  catch(e){ toast('Could not build the preview'); btn.disabled=false;btn.textContent=btn.getAttribute('data-icon'); return; }
+  if(!plan.placements.length){ btn.disabled=false;btn.textContent=btn.getAttribute('data-icon'); return; }
+  const t0=c.currentTime+0.08;
+  prevSrcs=[];
+  plan.placements.forEach(function(pl){
+    const node=c.createBufferSource(); node.buffer=cloneInto(c,pl.buffer);
+    const g=c.createGain(); node.connect(g); g.connect(c.destination);
+    const base=Math.max(0,t0+pl.start);
+    if(pl.gainPoints&&pl.gainPoints.length) schedGain(g,t0,pl.gainPoints); else g.gain.setValueAtTime(1,base);
+    node.start(base);
+    prevSrcs.push(node);
   });
   prevOn=true;btn.disabled=false;btn.classList.add('on');btn.textContent='\u23F9 Stop the preview';
+  _prevTimer=setTimeout(function(){ if(prevOn)stopPreview(); }, Math.max(300,(plan.total+0.4)*1000));
 }
 async function finishAndUpload(){
   if(!draft.story.length){toast('Record the story first');return;}
@@ -1508,6 +1754,7 @@ async function renderAll(){
   document.getElementById('btCount').textContent=bt.length?('· '+bt.length):'';
   document.getElementById('bedtime').innerHTML=bt.length?bt.map(it=>itemHTML(it,true)).join(''):'<div class="empty" style="padding:14px">Tap the ☆ on a story to add it here.</div>';
   document.getElementById('playAllBtn').disabled=!bt.length;
+  try{ renderBrandingPanel(); }catch(e){}
 }
 function itemHTML(it,isBt){
   if(isVoiceNote(it)) return voiceNoteHTML(it,isBt);
