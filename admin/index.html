@@ -717,19 +717,38 @@ async function brandStatus(){
   }catch(e){}
   return out;
 }
-/** Fetch + decode one branded clip into an AudioBuffer for the mixer (cached). Returns null if absent. */
-async function brandBuffer(ctx,slot){
-  if(slot in _brandBufs) return _brandBufs[slot];
-  if(!sb){ _brandBufs[slot]=null; return null; }
+/** Fetch one branded clip's bytes. Tries the public URL, then a signed URL
+ *  (works even if the bucket isn't flagged public, since the setup SQL grants
+ *  anonymous read). Logs the reason on failure. Returns an ArrayBuffer or null. */
+async function brandFetchAB(slot){
+  const key=BRAND_KEYS[slot];
+  // 1) public URL — fast, no API round-trip (works when the bucket is public)
   try{
-    const url=brandPublicUrl(BRAND_KEYS[slot]); if(!url){ _brandBufs[slot]=null; return null; }
-    const r=await fetch(url,{cache:'no-store'});
-    if(!r.ok){ _brandBufs[slot]=null; return null; }
-    const ab=await r.arrayBuffer();
-    if(!ab||ab.byteLength<64){ _brandBufs[slot]=null; return null; }
-    const buf=await ctx.decodeAudioData(ab);
-    _brandBufs[slot]=buf; return buf;
-  }catch(e){ _brandBufs[slot]=null; return null; }
+    const u=brandPublicUrl(key);
+    if(u){
+      const r=await fetch(u,{cache:'no-store'});
+      if(r.ok){ const ab=await r.arrayBuffer(); if(ab&&ab.byteLength>=64) return ab; console.warn('[FoxTales] brand "'+slot+'" public fetch returned '+((ab&&ab.byteLength)||0)+'B'); }
+      else console.warn('[FoxTales] brand "'+slot+'" public fetch HTTP '+r.status+' (bucket may not be public) — trying a signed URL');
+    }
+  }catch(e){ console.warn('[FoxTales] brand "'+slot+'" public fetch error:',(e&&e.message)||e); }
+  // 2) signed URL fallback — works on a private bucket when read RLS allows it
+  try{
+    const s=await sb.storage.from(BRAND_BUCKET).createSignedUrl(key,600);
+    if(s&&s.error) console.warn('[FoxTales] brand "'+slot+'" signed-url error:',s.error.message);
+    const su=s&&s.data&&s.data.signedUrl;
+    if(su){ const r=await fetch(su,{cache:'no-store'}); if(r.ok){ const ab=await r.arrayBuffer(); if(ab&&ab.byteLength>=64) return ab; } else console.warn('[FoxTales] brand "'+slot+'" signed fetch HTTP '+r.status); }
+  }catch(e){ console.warn('[FoxTales] brand "'+slot+'" signed fetch error:',(e&&e.message)||e); }
+  return null;
+}
+/** Fetch + decode one branded clip into an AudioBuffer for the mixer. Caches
+ *  successes only, so a transient/config failure never poisons the session. */
+async function brandBuffer(ctx,slot){
+  if(_brandBufs[slot]) return _brandBufs[slot];
+  if(!sb||!BRAND_KEYS[slot]) return null;
+  const ab=await brandFetchAB(slot);
+  if(!ab) return null;
+  try{ const buf=await ctx.decodeAudioData(ab); _brandBufs[slot]=buf; return buf; }
+  catch(e){ console.warn('[FoxTales] brand "'+slot+'" decode failed:',(e&&e.message)||e); return null; }
 }
 /** Decode any mp3/m4a/wav file and re-encode to mono MP3 (128k). Returns the blob + duration. */
 async function decodeEncodeMp3(file){
