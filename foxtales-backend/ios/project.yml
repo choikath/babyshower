@@ -1,0 +1,70 @@
+# XcodeGen spec — the source of truth for the Xcode project.
+#
+# The generated FoxTales.xcodeproj is NOT committed (see .gitignore); regenerate
+# it with `xcodegen generate` (or `make project`). This keeps the fragile,
+# UUID-laden pbxproj out of the repo and the project definition reviewable.
+#
+# Two targets share one player module (Packages/FoxTalesCore):
+#   FoxTales       — the full app (parent app the clip requires)
+#   FoxTalesClip   — the App Clip, embedded into the app
+name: FoxTales
+
+options:
+  bundleIdPrefix: app.foxtales
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+
+settings:
+  base:
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.9"
+    # Generated Info.plist is OFF — we ship our own (NSAppClip, background audio).
+    GENERATE_INFOPLIST_FILE: NO
+    CODE_SIGN_STYLE: Automatic
+    # Set your team here or in Xcode > Signing & Capabilities (leave blank for
+    # Simulator builds, which need no signing).
+    DEVELOPMENT_TEAM: ""
+    TARGETED_DEVICE_FAMILY: "1,2"
+
+packages:
+  FoxTalesCore:
+    path: Packages/FoxTalesCore
+
+targets:
+  FoxTales:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+      - path: Shared/Assets.xcassets
+    settings:
+      base:
+        PRODUCT_NAME: FoxTales
+        PRODUCT_BUNDLE_IDENTIFIER: app.foxtales.ios
+        INFOPLIST_FILE: App/Info.plist
+        CODE_SIGN_ENTITLEMENTS: App/FoxTales.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    dependencies:
+      - package: FoxTalesCore
+      # Embeds the App Clip into the app (XcodeGen creates the "Embed App Clips"
+      # phase because the target below is an on-demand-install-capable product).
+      - target: FoxTalesClip
+
+  FoxTalesClip:
+    type: application.on-demand-install-capable
+    platform: iOS
+    sources:
+      - path: Clip
+      - path: Shared/Assets.xcassets
+    settings:
+      base:
+        PRODUCT_NAME: FoxTalesClip
+        PRODUCT_BUNDLE_IDENTIFIER: app.foxtales.ios.Clip
+        INFOPLIST_FILE: Clip/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Clip/FoxTalesClip.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    dependencies:
+      - package: FoxTalesCore

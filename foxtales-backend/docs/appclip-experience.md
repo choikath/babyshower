@@ -4,7 +4,7 @@ How a single NFC tap becomes a playing story, why iOS and Android diverge, what
 it takes to turn on the App Clip, and what families actually feel when it's on.
 
 This is the product/architecture view of spec **Decision 6** (playback surface).
-For build mechanics see [`../ios-appclip/README.md`](../ios-appclip/README.md);
+For build mechanics see [`../ios/README.md`](../ios/README.md);
 for the backend that serves it, [`../README.md`](../README.md).
 
 ## The one fact everything hangs on
@@ -52,18 +52,18 @@ no account** → the story is *already playing*.
 The code path:
 
 1. The tap delivers the URL as a Universal Link activity; the clip catches it
-   (`ios-appclip/FoxTalesClipApp.swift:20`, `onContinueUserActivity`) and
-   extracts the 22-char token.
+   (`ios/Clip/FoxTalesClipApp.swift`, `onContinueUserActivity`) and extracts the
+   22-char token (`CardLink.token(from:)`).
 2. It calls `GET /p/<token>` with `Accept: application/json`
-   (`ios-appclip/StoryService.swift:36`) and decodes the story metadata plus a
-   short-lived **signed** MP3 URL.
-3. The player loads `.onAppear` and **autoplays immediately**
-   (`ios-appclip/PlayerView.swift:53,90` — `play() // autoplay on launch`). No
-   "tap ▶", because a native target launched from the link is *allowed* to start
-   playback on launch.
+   (`ios/Packages/FoxTalesCore/Sources/FoxTalesCore/StoryService.swift`) and
+   decodes the story metadata plus a short-lived **signed** MP3 URL.
+3. The shared player loads `.onAppear` (`…/FoxTalesCore/PlayerView.swift`) and
+   **autoplays immediately** (`…/FoxTalesCore/PlayerEngine.swift` —
+   `play() // autoplay on launch`). No "tap ▶", because a native target launched
+   from the link is *allowed* to start playback on launch.
 4. Lock-screen **Now Playing** controls, Control Center transport, and the
    Dynamic Island light up for free the moment the native player runs
-   (`ios-appclip/NowPlaying.swift`).
+   (`…/FoxTalesCore/NowPlaying.swift`).
 
 **Net: 2 interactions, ~2–3 s.**
 
@@ -95,29 +95,31 @@ almost entirely Apple-side plus one validation:
 
 1. **Apple Developer account + Xcode.** The backend repo cannot build/sign an iOS
    target — this is the gate.
-2. **Create the targets:** an iOS app (`app.foxtales.ios`) and an App Clip target
-   (`app.foxtales.ios.Clip`); drop the scaffold Swift files
-   (`FoxTalesClipApp`, `StoryService`, `PlayerView`, `NowPlaying`) into the clip.
+2. **Generate the project:** the two targets (app `app.foxtales.ios` + App Clip
+   `app.foxtales.ios.Clip`) and the shared `FoxTalesCore` module are defined in
+   `ios/project.yml`; run `make project` (XcodeGen) to produce the `.xcodeproj`.
+   Both targets share the player module — no files to copy by hand.
 3. **Associated Domains entitlement** on the clip: `appclips:foxtales.app` —
-   already in `ios-appclip/FoxTalesClip.entitlements`; must match the AASA host.
+   already in `ios/Clip/FoxTalesClip.entitlements`; must match the AASA host.
 4. **App Store Connect → App Clip → default experience** with URL prefix
    `https://foxtales.app/p/`.
-5. **Set the real origin:** `FoxTales.baseURL` in
-   `ios-appclip/StoryService.swift:26`, and the Apple identifiers in the backend
-   env (`APPLE_TEAM_ID`, `IOS_BUNDLE_ID`, `APPCLIP_BUNDLE_ID`) so the AASA renders
-   correctly.
+5. **Set the real origin:** the `FoxTalesBaseURL` key in `ios/App/Info.plist` and
+   `ios/Clip/Info.plist` (read by `FoxTalesConfig`), and the Apple identifiers in
+   the backend env (`APPLE_TEAM_ID`, `IOS_BUNDLE_ID`, `APPCLIP_BUNDLE_ID`) so the
+   AASA renders correctly.
 6. **Deploy so the AASA serves cleanly:** HTTPS at the domain apex,
    `application/json`, **no redirect** (Apple fetches it directly). The service
    does this right — just don't let a CDN rewrite the path or content-type.
-7. **Keep the clip under its size budget** — no heavy dependencies; the scaffold
-   player is deliberately tiny.
+7. **Keep the clip under its size budget** — no heavy dependencies; the shared
+   `FoxTalesCore` module links statically and is deliberately tiny.
 8. **⚠️ Run the load-bearing spike first.** This is the *one genuine unknown*
-   (`ios-appclip/NowPlaying.swift:7-13`, spec Decision 6). App Clips are barred
-   from general background execution, and it is **not documented** whether an
-   active `.playback` audio session survives screen-lock *inside a clip*. The
-   mechanics are already wired (`UIBackgroundModes: [audio]` in
-   `ios-appclip/Info.plist.example`, the `.playback` session in `NowPlaying.swift`),
-   but must be validated on a physical device:
+   (`…/FoxTalesCore/NowPlaying.swift`, spec Decision 6; runbook in
+   [`../ios/SPIKE.md`](../ios/SPIKE.md)). App Clips are barred from general
+   background execution, and it is **not documented** whether an active
+   `.playback` audio session survives screen-lock *inside a clip*. The mechanics
+   are already wired (`UIBackgroundModes: [audio]` in `ios/Clip/Info.plist`, the
+   `.playback` session in `NowPlaying.swift`), but must be validated on a physical
+   device:
    - audio keeps playing when the screen locks, and
    - Now Playing / Control Center controls work inside the clip.
 

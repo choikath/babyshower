@@ -76,7 +76,8 @@ src/
 db/
   0001_init.sql       schema + indexes
   0002_rls.sql        Row Level Security policies
-ios-appclip/          SwiftUI App Clip scaffold (see its README)
+ios/                  buildable Xcode project — app + App Clip + shared FoxTalesCore
+docs/                 architecture notes (e.g. the App Clip experience)
 scripts/smoke.mjs     end-to-end HTTP test
 Dockerfile            multi-stage build, bundles ffmpeg for runtime
 ```
@@ -189,11 +190,13 @@ in-app flow automates write-verify-lock.
 
 ## iOS App Clip
 
-See [`ios-appclip/README.md`](ios-appclip/README.md). The scaffold resolves a
-tapped token and plays it. Building/signing needs Xcode + an Apple Developer
+A buildable Xcode project lives in [`ios/`](ios/) — the full app and the App Clip
+sharing one player module (`FoxTalesCore`); see [`ios/README.md`](ios/README.md)
+to generate and build it. Building/signing needs Xcode + an Apple Developer
 account, and there's one genuine unknown to spike first: **background audio
-inside an App Clip** (does playback continue when the screen locks?). The web
-player is the permanent fallback, so tap-to-play works on every phone regardless.
+inside an App Clip** (does playback continue when the screen locks?) — runbook in
+[`ios/SPIKE.md`](ios/SPIKE.md). The web player is the permanent fallback, so
+tap-to-play works on every phone regardless.
 
 For the product/architecture view — the iOS instant-play experience, the Android
 web fallback, what it takes to turn the clip on, and what families feel — see
@@ -232,8 +235,9 @@ Being direct about the edges:
    create the private `audio` bucket; enable Apple + magic-link auth.
 2. Deploy this image (Dockerfile) to a container host with the production env.
 3. Point your domain at it; confirm the AASA file serves correctly over HTTPS.
-4. Build the iOS app + App Clip in Xcode from `ios-appclip/`; **spike background
-   audio** on a device; register the App Clip experience in App Store Connect.
+4. Build the iOS app + App Clip from `ios/` (`make open`); **spike background
+   audio** on a device (`ios/SPIKE.md`); register the App Clip experience in App
+   Store Connect.
 5. Wire the recording UI to `POST /api/stories` (signed uploads) →
    `POST /api/stories/:id/stitch`, and the card setup to `POST /api/cards` →
    write/lock the tag → `POST /api/cards/:id/link`.

@@ -1,16 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- App Clip target entitlements. The associated-domain MUST match the host that
-     serves /.well-known/apple-app-site-association (your PUBLIC_BASE_URL host). -->
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <!-- App Clip launch association (matches the AASA `appclips` section).
+         Must match the host serving the AASA file. -->
     <key>com.apple.developer.associated-domains</key>
     <array>
         <string>appclips:foxtales.app</string>
     </array>
+
+    <!-- Declares the parent app this clip belongs to. AppIdentifierPrefix is the
+         team prefix; Xcode substitutes it at build time. -->
     <key>com.apple.developer.parent-application-identifiers</key>
     <array>
-        <!-- Xcode fills this with $(AppIdentifierPrefix)app.foxtales.ios -->
         <string>$(AppIdentifierPrefix)app.foxtales.ios</string>
     </array>
 </dict>
