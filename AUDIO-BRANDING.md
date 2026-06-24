@@ -49,7 +49,15 @@ Supabase SQL editor (Dashboard → SQL editor → paste → Run).
 
 ## Notes
 
+- **The recorder at foxtales.app is unchanged.** Storytellers see the exact same
+  flow, and their in-recorder preview plays **only their own recording** — they
+  never see or hear the branding. Branding is applied solely when the **final
+  stitched MP3** is produced. Until you upload any clips, that final MP3 is
+  byte-for-byte what it was before this feature.
+- **Where the splice happens:** the segments (greeting, story parts, recorded
+  sign-off) are joined in the browser at the moment a story is finished — that's
+  the only place they exist as separate pieces, which is what lets the branded
+  *intro* be inserted *between* the greeting and the story. The server only ever
+  receives the finished MP3.
 - Branding applies to the **story** recorder only — quick **voice notes** are
   never wrapped.
-- Storyteller’s **“hear it as they will”** preview plays the same mixed timeline,
-  so what they hear is what gets saved.

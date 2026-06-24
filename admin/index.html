@@ -1683,7 +1683,7 @@ async function mergeTracks(){
   if(MP3_OK){try{return {blob:encodeMp3(i16,sr),ext:'mp3',secs:secs};}catch(e){return {blob:encodeWav(i16,sr),ext:'wav',secs:secs};}}
   return {blob:encodeWav(i16,sr),ext:'wav',secs:secs};
 }
-/* ---------- "hear it as they will" — the same timeline, played live ---------- */
+/* ---------- recorder preview — the storyteller's own recording only (branding is added solely to the final MP3) ---------- */
 let prevSrcs=[],prevOn=false,_prevTimer=null;
 function stopPreview(){
   if(_prevTimer){clearTimeout(_prevTimer);_prevTimer=null;}
@@ -1699,7 +1699,9 @@ async function previewFinal(btn){
   btn.disabled=true;btn.textContent='\u23F3 Getting it ready\u2026';
   const c=ac(); if(c.state==='suspended'){try{await c.resume();}catch(e){}}
   let plan;
-  try{ plan=await assembleStory(c,{wantBranded:true}); }
+  // The recorder is unchanged: the storyteller previews ONLY their own recording.
+  // Admin branding (jingle/intro/outro) is applied solely to the final stitched MP3.
+  try{ plan=await assembleStory(c,{wantBranded:false}); }
   catch(e){ toast('Could not build the preview'); btn.disabled=false;btn.textContent=btn.getAttribute('data-icon'); return; }
   if(!plan.placements.length){ btn.disabled=false;btn.textContent=btn.getAttribute('data-icon'); return; }
   const t0=c.currentTime+0.08;
