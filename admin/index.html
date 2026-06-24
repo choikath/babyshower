@@ -1159,7 +1159,7 @@ async function sendVoiceNote(){
   var item={id:id,from:from,book:'',author:'',note:'',title:vnTitle,date:Date.now(),inBedtime:false,audioId:id,ext:result.ext,includes:['Voice note'],bytes:result.blob.size,secs:result.secs||0,isVoiceNote:true,vnReader:reader,originToken:ORIGIN_TOKEN||''};
   var _save;
   try{ _save=await Backend.saveStory(item,result.blob); }
-  catch(e){ if(e&&e.message==='sign_in_cancelled'){ renderVoiceNote(); return; } console.error('[FoxTales] voice note save failed:',e); toast('Couldn’t send your voice note. Please try again.'); renderVoiceNote(); return; }
+  catch(e){ if(e&&e.message==='sign_in_cancelled'){ renderVoiceNote(); return; } console.error('[FoxTales] voice note save failed:',e); toast('Couldn’t send your voice note — '+((e&&e.message)||'unknown error')); renderVoiceNote(); return; }
   var _sid=(_save&&_save.storyId)?_save.storyId:id;
   _localBlobs[_sid]=result.blob;
   lastTrack={id:_sid,ext:result.ext,book:'',from:from,parts:np,secs:result.secs||0,tapUrl:(_save&&_save.tapUrl)||'',isVoiceNote:true,vnReader:reader};
@@ -1822,7 +1822,7 @@ async function mergeTracks(){
   if(MP3_OK){try{return {blob:encodeMp3(i16,sr),ext:'mp3',secs:secs};}catch(e){return {blob:encodeWav(i16,sr),ext:'wav',secs:secs};}}
   return {blob:encodeWav(i16,sr),ext:'wav',secs:secs};
 }
-/* ---------- recorder preview — the storyteller's own recording only (branding is added solely to the final MP3) ---------- */
+/* ---------- "hear it as they will" — previews the FINAL mix, branding included ---------- */
 let prevSrcs=[],prevOn=false,_prevTimer=null;
 function stopPreview(){
   if(_prevTimer){clearTimeout(_prevTimer);_prevTimer=null;}
@@ -1838,9 +1838,9 @@ async function previewFinal(btn){
   btn.disabled=true;btn.textContent='\u23F3 Getting it ready\u2026';
   const c=ac(); if(c.state==='suspended'){try{await c.resume();}catch(e){}}
   let plan;
-  // The recorder is unchanged: the storyteller previews ONLY their own recording.
-  // Admin branding (jingle/intro/outro) is applied solely to the final stitched MP3.
-  try{ plan=await assembleStory(c,{wantBranded:false}); }
+  // "Hear it as they will" previews the FINAL product, branding included — so the
+  // storyteller hears exactly what gets saved (jingle / intro / outro, with fades).
+  try{ plan=await assembleStory(c,{wantBranded:true}); }
   catch(e){ toast('Could not build the preview'); btn.disabled=false;btn.textContent=btn.getAttribute('data-icon'); return; }
   if(!plan.placements.length){ btn.disabled=false;btn.textContent=btn.getAttribute('data-icon'); return; }
   const t0=c.currentTime+0.08;
@@ -1872,7 +1872,7 @@ async function finishAndUpload(){
   const item={id,from,book:(draft.title||'').trim(),author:(draft.author||'').trim(),note:note,title:draft.title?('\u201C'+draft.title+'\u201D'):'Bedtime story',date:Date.now(),inBedtime:false,audioId:id,ext:result.ext,includes,bytes:result.blob.size,secs:result.secs||0};
   let _save;
   try{ _save=await Backend.saveStory(item,result.blob); }
-  catch(e){ if(e&&e.message==='sign_in_cancelled'){ renderWizard(); return; } console.error('[FoxTales] saveStory failed:',e); toast('Couldn\u2019t send your story. Please try again.'); renderWizard(); return; }
+  catch(e){ if(e&&e.message==='sign_in_cancelled'){ renderWizard(); return; } console.error('[FoxTales] saveStory failed:',e); toast('Couldn\u2019t send your story \u2014 '+((e&&e.message)||'unknown error')); renderWizard(); return; }
   const _sid=(_save&&_save.storyId)?_save.storyId:id;   // the backend assigns the canonical id; play/stream key off it
   _localBlobs[_sid]=result.blob;
   lastTrack={id:_sid,ext:result.ext,book:(draft.title||'').trim(),from:from,parts:np,secs:result.secs||0,tapUrl:(_save&&_save.tapUrl)||''};
