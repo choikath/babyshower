@@ -448,7 +448,7 @@ body.storyteller .closex{display:none!important}
 
 <script>
 /* ---------- build stamp (so we can confirm which version is actually live) ---------- */
-window.FT_BUILD='20260624-1941Z';try{console.info('[FoxTales] build '+window.FT_BUILD);}catch(e){}
+window.FT_BUILD='20260624-2315Z';try{console.info('[FoxTales] build '+window.FT_BUILD);}catch(e){}
 /* ---------- storage / backend ---------- */
 /* Finished stories persist to a backend. When Supabase is configured below,
    the stitched MP3 uploads to a PRIVATE Storage bucket and its metadata is
@@ -1688,14 +1688,14 @@ async function chimeMono(ctx){
 ==================================================================== */
 const MIX = {
   GAP:             0.35,  // gap between story parts (and story<->recorded-outro)
-  JINGLE_LEAD:     5.0,   // greeting starts this many secs after the jingle starts
-  JINGLE_FADE:     5.0,   // jingle fades to silence over this long once the greeting begins
+  JINGLE_LEAD:     8.0,   // greeting starts this many secs after the jingle starts
+  JINGLE_FADE:     7.0,   // jingle fades to silence over this long once the greeting begins
   GREET_INTRO_GAP: 0.5,   // branded intro starts this long after the greeting ends
-  INTRO_FADE_OUT:  3.0,   // last N secs of the branded intro fade out
+  INTRO_FADE_OUT:  5.0,   // last N secs of the branded intro fade out
   INTRO_BOOK_GAP:  0.0,   // gap between the branded intro and the story (its fade covers it)
   OUTRO_LEAD:      5.0,   // outro jingle starts this many secs before the story ends (overlap)
-  OUTRO_FADE_IN:   6.0,   // outro jingle fades in over this long
-  OUTRO_TAIL_FADE: 3.0    // outro jingle fades out over its last N secs
+  OUTRO_FADE_IN:   10.0,  // outro jingle fades in over this long
+  OUTRO_TAIL_FADE: 8.0    // outro jingle fades out over its last N secs
 };
 function _rms(f){let s=0;for(let i=0;i<f.length;i++)s+=f[i]*f[i];return Math.sqrt(s/Math.max(1,f.length));}
 function _peak(f){let p=0;for(let i=0;i<f.length;i++){const a=f[i]<0?-f[i]:f[i];if(a>p)p=a;}return p;}

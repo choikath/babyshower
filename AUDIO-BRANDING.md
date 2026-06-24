@@ -11,12 +11,12 @@ Each story is mixed **in the browser** into a single MP3. With all three clips
 uploaded, the timeline is:
 
 ```
-0:00  ── intro jingle (full)
-0:05  ── recorded greeting starts; jingle fades out over 5s (they overlap)
- ···  ── 0.5s after the greeting ends → branded intro (its last 3s fade out)
+0:00  ── intro jingle (full for 8s)
+0:08  ── recorded greeting starts; jingle fades out over 7s (they overlap)
+ ···  ── 0.5s after the greeting ends → branded intro (its last 5s fade out)
  ···  ── the story (all recorded parts + the recorded sign-off)
- ···  ── 5s before the story ends → outro jingle fades in over 6s (overlap),
-         plays, then fades out over its last 3s
+ ···  ── 5s before the story ends → outro jingle fades in over 10s (overlap),
+         plays, then fades out over its last 8s
 ```
 
 Every clip is **optional**. Any slot you leave empty is simply skipped, and a
