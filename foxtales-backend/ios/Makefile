@@ -10,8 +10,12 @@ SIM ?= platform=iOS Simulator,name=iPhone 15
 project: ## Generate FoxTales.xcodeproj from project.yml
 	xcodegen generate
 
-open: project ## Generate and open the project in Xcode
-	open $(PROJECT)
+open: project ## Generate and open the project in Xcode (not a text editor)
+	@open -a Xcode "$(PROJECT)" || { \
+	  echo ""; \
+	  echo ">> Could not open Xcode. Install the full Xcode app from the Mac App"; \
+	  echo ">> Store (not just the command-line tools), then run: make open"; \
+	  exit 1; }
 
 build-app: project ## Compile the full app for the Simulator (no signing needed)
 	xcodebuild -project $(PROJECT) -scheme FoxTales -destination '$(SIM)' build
