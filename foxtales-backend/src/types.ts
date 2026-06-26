@@ -40,6 +40,29 @@ export interface Story {
   inBedtime: boolean;
   bedtimeOrder: number | null;
   playCount: number;
+  noteCtaClicks: number; // times the player's "record a voice note" CTA was tapped
+  createdAt: string;
+}
+
+// A voice memo a listener recorded and sent back to the reader (spec: recording
+// updates). Created anonymously from the streamlined recorder at /note/:token,
+// surfaced in the family's admin "Voice Memo Inbox".
+export type VoiceNoteStatus = "processing" | "ready";
+
+export interface VoiceNote {
+  id: string;
+  familyId: string;
+  originCardId: string | null;
+  originStoryId: string | null;
+  originToken: string | null;
+  readerName: string | null; // receiver — the story's reader
+  senderName: string | null; // who left the memo (optional)
+  message: string | null; // optional typed note
+  audioKey: string | null;
+  durationSec: number | null;
+  ext: string | null;
+  status: VoiceNoteStatus;
+  playedAt: string | null;
   createdAt: string;
 }
 

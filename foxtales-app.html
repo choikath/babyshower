@@ -424,6 +424,13 @@ body.storyteller .closex{display:none!important}
       <div id="inbox"></div>
     </div>
 
+    <div class="card" id="voiceInboxCard" style="display:none">
+      <span class="eyebrow">Voice memos</span>
+      <h2 style="margin-top:4px">Voice Memo Inbox</h2>
+      <div class="sub">Notes listeners recorded and sent back — tap ▶ to listen.</div>
+      <div id="voiceInbox"></div>
+    </div>
+
     <div class="card">
       <span class="eyebrow">Tonight</span>
       <h2 style="margin-top:4px">Tonight's bedtime <span id="btCount"></span></h2>
@@ -1896,6 +1903,49 @@ async function renderAll(){
   document.getElementById('playAllBtn').disabled=!bt.length;
   try{ renderBrandingPanel(); }catch(e){}
   try{ renderMintPanel(); }catch(e){}
+  try{ renderVoiceInbox(); }catch(e){}
+}
+
+/* ===== Voice Memo Inbox (admin dashboard only) =====
+   Lists the voice notes listeners recorded from a player's "record a voice note"
+   button. Backend feature only (needs API_ON); shown on the /admin dashboard. */
+let _vnAudio=null,_vnPlaying='';
+function vnFmtSecs(s){s=Math.max(0,Math.floor(s||0));var m=Math.floor(s/60),x=s%60;return m+':'+(x<10?'0':'')+x;}
+async function renderVoiceInbox(){
+  const card=document.getElementById('voiceInboxCard'),box=document.getElementById('voiceInbox');
+  if(!card||!box) return;
+  if(!API_ON || !ftIsAdminPath()){ card.style.display='none'; return; }
+  card.style.display='';
+  let data;
+  try{ data=await _api('/api/voice-notes?familyId='+encodeURIComponent(FAMILY_ID)); }
+  catch(e){ box.innerHTML='<div class="empty" style="padding:14px">Sign in as an admin to see voice memos.</div>'; return; }
+  const notes=(data&&data.voiceNotes)||[];
+  if(!notes.length){ box.innerHTML='<div class="empty"><span class="big">💌</span>No voice memos yet — they arrive when listeners tap “record a voice note”.</div>'; return; }
+  box.innerHTML=notes.map(function(n){
+    const who=esc(n.senderName||'Someone'); const to=n.readerName?(' <span class="byline">for '+esc(n.readerName)+'</span>'):'';
+    const d=n.createdAt?new Date(n.createdAt):null; const when=d?d.toLocaleDateString():'';
+    const len=n.durationSec?(' · '+vnFmtSecs(n.durationSec)):''; const unheard=n.playedAt?'':' <span class="pill">new</span>';
+    const msg=n.message?('<div class="note-q">“'+esc(n.message)+'”</div>'):'';
+    return '<div class="item"><div class="top">'
+      +'<div class="av">'+(initials(n.senderName)||'♪')+'</div>'
+      +'<div class="meta">'
+      +'<div class="who">'+who+to+unheard+'</div>'
+      +'<div class="ttl">'+when+len+'</div>'+msg
+      +'<div class="controls"><button class="play" data-vn="'+n.id+'" onclick="playVoiceNote(this,\''+n.id+'\')">▶</button></div>'
+      +'</div></div></div>';
+  }).join('');
+}
+async function playVoiceNote(btn,id){
+  try{
+    if(!_vnAudio){ _vnAudio=new Audio(); _vnAudio.addEventListener('ended',function(){ _vnPlaying=''; document.querySelectorAll('[data-vn]').forEach(function(b){b.textContent='▶';}); }); }
+    if(_vnPlaying===id){ _vnAudio.pause(); _vnPlaying=''; if(btn)btn.textContent='▶'; return; }
+    try{ stopAll(); }catch(e){}
+    const signed=await _api('/api/voice-notes/'+id+'/stream');
+    if(!signed||!signed.url){ toast('Could not load memo'); return; }
+    document.querySelectorAll('[data-vn]').forEach(function(b){b.textContent='▶';});
+    _vnAudio.src=signed.url; await _vnAudio.play(); _vnPlaying=id; if(btn)btn.textContent='⏸';
+    try{ renderVoiceInbox(); }catch(e){}
+  }catch(e){ toast('Could not play memo'); }
 }
 function itemHTML(it,isBt){
   if(isVoiceNote(it)) return voiceNoteHTML(it,isBt);

@@ -1,4 +1,4 @@
-import type { Card, Family, Membership, Story, StoryStatus, User } from "./types.js";
+import type { Card, Family, Membership, Story, StoryStatus, User, VoiceNote } from "./types.js";
 import { env } from "./env.js";
 
 export interface Repo {
@@ -28,6 +28,26 @@ export interface Repo {
   markStoryReady(id: string, patch: { audioKey: string; peaksKey: string; durationSec: number; parts: number }): Promise<Story | null>;
   listStoriesForFamily(familyId: string): Promise<Story[]>;
   incrementPlayCount(id: string): Promise<void>;
+  incrementNoteCtaClicks(id: string): Promise<void>;
+
+  // voice notes (memos recorded back to a reader)
+  createVoiceNote(input: {
+    id?: string;
+    familyId: string;
+    originCardId?: string | null;
+    originStoryId?: string | null;
+    originToken?: string | null;
+    readerName?: string | null;
+    senderName?: string | null;
+    message?: string | null;
+    audioKey: string;
+    ext: string;
+    durationSec?: number | null;
+  }): Promise<VoiceNote>;
+  getVoiceNote(id: string): Promise<VoiceNote | null>;
+  markVoiceNoteReady(id: string, patch: { durationSec: number | null }): Promise<VoiceNote | null>;
+  listVoiceNotesForFamily(familyId: string): Promise<VoiceNote[]>;
+  touchVoiceNotePlayed(id: string): Promise<void>;
 
   // cards
   createCard(input: { familyId: string; token: string }): Promise<Card>;
@@ -54,4 +74,4 @@ export async function getRepo(): Promise<Repo> {
   return repoSingleton;
 }
 
-export type { Card, Family, Membership, Story, StoryStatus, User };
+export type { Card, Family, Membership, Story, StoryStatus, User, VoiceNote };

@@ -64,6 +64,9 @@ resolverRouter.get("/p/:token", ipLimiter, tokenLimiter, ah(async (req: Request,
           note: story.note,
           durationSec: story.durationSec,
           peaksUrl,
+          // +1 reflects this very resolve (incrementPlayCount above is fire-and-forget,
+          // so the stored value hasn't updated yet). Lets the player show a live count.
+          playCount: story.playCount + 1,
         },
         stream: { url: stream.url, expiresAt: stream.expiresAt },
       });

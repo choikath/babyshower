@@ -161,7 +161,7 @@ storiesRouter.get(
       stories: stories.map((s) => ({
         id: s.id, title: s.title, author: s.author, fromName: s.fromName,
         status: s.status, durationSec: s.durationSec, parts: s.parts,
-        playCount: s.playCount, createdAt: s.createdAt,
+        playCount: s.playCount, noteCtaClicks: s.noteCtaClicks, createdAt: s.createdAt,
       })),
     });
   }),

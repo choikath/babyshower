@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Repo } from "./repo.js";
-import type { Card, Family, Membership, Story, User } from "./types.js";
+import type { Card, Family, Membership, Story, User, VoiceNote } from "./types.js";
 
 /**
  * No external services required. Useful for `DB_DRIVER=memory` local demos and
@@ -14,6 +14,7 @@ export class MemoryRepo implements Repo {
   private stories = new Map<string, Story>();
   private cards = new Map<string, Card>();
   private cardsByToken = new Map<string, string>(); // token -> cardId
+  private voiceNotes = new Map<string, VoiceNote>();
 
   private now() {
     return new Date().toISOString();
@@ -72,6 +73,7 @@ export class MemoryRepo implements Repo {
       inBedtime: false,
       bedtimeOrder: null,
       playCount: 0,
+      noteCtaClicks: 0,
       createdAt: this.now(),
     };
     this.stories.set(s.id, s);
@@ -94,6 +96,54 @@ export class MemoryRepo implements Repo {
   async incrementPlayCount(id: string): Promise<void> {
     const s = this.stories.get(id);
     if (s) s.playCount += 1;
+  }
+  async incrementNoteCtaClicks(id: string): Promise<void> {
+    const s = this.stories.get(id);
+    if (s) s.noteCtaClicks += 1;
+  }
+
+  async createVoiceNote(input: {
+    id?: string; familyId: string; originCardId?: string | null; originStoryId?: string | null; originToken?: string | null;
+    readerName?: string | null; senderName?: string | null; message?: string | null;
+    audioKey: string; ext: string; durationSec?: number | null;
+  }): Promise<VoiceNote> {
+    const v: VoiceNote = {
+      id: input.id ?? randomUUID(),
+      familyId: input.familyId,
+      originCardId: input.originCardId ?? null,
+      originStoryId: input.originStoryId ?? null,
+      originToken: input.originToken ?? null,
+      readerName: input.readerName ?? null,
+      senderName: input.senderName ?? null,
+      message: input.message ?? null,
+      audioKey: input.audioKey,
+      durationSec: input.durationSec ?? null,
+      ext: input.ext,
+      status: "processing",
+      playedAt: null,
+      createdAt: this.now(),
+    };
+    this.voiceNotes.set(v.id, v);
+    return v;
+  }
+  async getVoiceNote(id: string): Promise<VoiceNote | null> {
+    return this.voiceNotes.get(id) ?? null;
+  }
+  async markVoiceNoteReady(id: string, patch: { durationSec: number | null }): Promise<VoiceNote | null> {
+    const v = this.voiceNotes.get(id);
+    if (!v) return null;
+    v.status = "ready";
+    if (patch.durationSec != null) v.durationSec = patch.durationSec;
+    return v;
+  }
+  async listVoiceNotesForFamily(familyId: string): Promise<VoiceNote[]> {
+    return [...this.voiceNotes.values()]
+      .filter((v) => v.familyId === familyId)
+      .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  }
+  async touchVoiceNotePlayed(id: string): Promise<void> {
+    const v = this.voiceNotes.get(id);
+    if (v && !v.playedAt) v.playedAt = this.now();
   }
 
   async createCard(input: { familyId: string; token: string }): Promise<Card> {

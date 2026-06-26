@@ -1,6 +1,6 @@
 import { query } from "./db.js";
 import type { Repo } from "./repo.js";
-import type { Card, Family, Membership, Story, StoryStatus, User } from "./types.js";
+import type { Card, Family, Membership, Story, StoryStatus, User, VoiceNote, VoiceNoteStatus } from "./types.js";
 
 // Row mappers (snake_case columns -> camelCase domain objects).
 const toFamily = (r: any): Family => ({ id: r.id, name: r.name, childName: r.child_name, createdAt: r.created_at.toISOString?.() ?? r.created_at });
@@ -11,6 +11,15 @@ const toStory = (r: any): Story => ({
   title: r.title, author: r.author, note: r.note, durationSec: r.duration_sec === null ? null : Number(r.duration_sec),
   parts: r.parts, audioKey: r.audio_key, peaksKey: r.peaks_key, status: r.status as StoryStatus,
   inBedtime: r.in_bedtime, bedtimeOrder: r.bedtime_order, playCount: r.play_count,
+  noteCtaClicks: r.note_cta_clicks ?? 0,
+  createdAt: r.created_at.toISOString?.() ?? r.created_at,
+});
+const toVoiceNote = (r: any): VoiceNote => ({
+  id: r.id, familyId: r.family_id, originCardId: r.origin_card_id, originStoryId: r.origin_story_id,
+  originToken: r.origin_token, readerName: r.reader_name, senderName: r.sender_name, message: r.message,
+  audioKey: r.audio_key, durationSec: r.duration_sec === null || r.duration_sec === undefined ? null : Number(r.duration_sec),
+  ext: r.ext, status: r.status as VoiceNoteStatus,
+  playedAt: r.played_at?.toISOString?.() ?? r.played_at ?? null,
   createdAt: r.created_at.toISOString?.() ?? r.created_at,
 });
 const toCard = (r: any): Card => ({
@@ -90,6 +99,45 @@ export class PgRepo implements Repo {
   }
   async incrementPlayCount(id: string): Promise<void> {
     await query(`update stories set play_count = play_count + 1 where id = $1`, [id]);
+  }
+  async incrementNoteCtaClicks(id: string): Promise<void> {
+    await query(`update stories set note_cta_clicks = note_cta_clicks + 1 where id = $1`, [id]);
+  }
+
+  async createVoiceNote(input: {
+    id?: string; familyId: string; originCardId?: string | null; originStoryId?: string | null; originToken?: string | null;
+    readerName?: string | null; senderName?: string | null; message?: string | null;
+    audioKey: string; ext: string; durationSec?: number | null;
+  }): Promise<VoiceNote> {
+    const { rows } = await query(
+      `insert into voice_notes
+         (id, family_id, origin_card_id, origin_story_id, origin_token, reader_name, sender_name, message, audio_key, ext, duration_sec, status)
+       values (coalesce($1::uuid, gen_random_uuid()),$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'processing') returning *`,
+      [
+        input.id ?? null, input.familyId, input.originCardId ?? null, input.originStoryId ?? null, input.originToken ?? null,
+        input.readerName ?? null, input.senderName ?? null, input.message ?? null,
+        input.audioKey, input.ext, input.durationSec ?? null,
+      ],
+    );
+    return toVoiceNote(rows[0]);
+  }
+  async getVoiceNote(id: string): Promise<VoiceNote | null> {
+    const { rows } = await query(`select * from voice_notes where id = $1`, [id]);
+    return rows[0] ? toVoiceNote(rows[0]) : null;
+  }
+  async markVoiceNoteReady(id: string, patch: { durationSec: number | null }): Promise<VoiceNote | null> {
+    const { rows } = await query(
+      `update voice_notes set status='ready', duration_sec = coalesce($2, duration_sec) where id = $1 returning *`,
+      [id, patch.durationSec ?? null],
+    );
+    return rows[0] ? toVoiceNote(rows[0]) : null;
+  }
+  async listVoiceNotesForFamily(familyId: string): Promise<VoiceNote[]> {
+    const { rows } = await query(`select * from voice_notes where family_id = $1 order by created_at desc`, [familyId]);
+    return rows.map(toVoiceNote);
+  }
+  async touchVoiceNotePlayed(id: string): Promise<void> {
+    await query(`update voice_notes set played_at = coalesce(played_at, now()) where id = $1`, [id]);
   }
 
   async createCard(input: { familyId: string; token: string }): Promise<Card> {

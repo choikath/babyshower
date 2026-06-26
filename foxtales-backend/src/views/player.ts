@@ -72,6 +72,7 @@ body{
 .pp:focus-visible{outline:2px solid var(--brass); outline-offset:4px}
 .pp svg{width:24px; height:24px; display:block}
 .hint{text-align:center; font-size:12px; color:var(--muted); letter-spacing:.04em; margin:18px 0 0}
+.stats{margin-top:26px; text-align:center; font-size:11.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); font-variant-numeric:tabular-nums}
 .foot{margin-top:30px; padding-top:18px; border-top:1px solid var(--hairline); font-size:11px; letter-spacing:.22em; text-transform:uppercase; color:var(--brass-deep)}
 .ft-cta{margin-top:30px; padding-top:22px; border-top:1px solid var(--hairline); display:flex; flex-direction:column; gap:11px}
 .ft-cta .lead{font-size:11px; letter-spacing:.30em; text-transform:uppercase; color:var(--brass-deep); font-weight:600; margin:0 0 4px}
@@ -114,6 +115,20 @@ export interface PlayerStory {
   fromName: string;
   note: string | null;
   durationSec: number | null;
+  playCount: number;
+}
+
+/** A subtle "played N times · ~M min listened" line. Listening time is estimated
+ * as plays × duration (no per-listen tracking) — accurate enough to be meaningful
+ * without instrumenting every playback. */
+function statsLine(playCount: number, durationSec: number | null): string {
+  const plays = Math.max(0, playCount || 0);
+  const playsTxt = plays === 1 ? "Played once" : `Played ${plays.toLocaleString("en-US")} times`;
+  const totalSec = plays * (durationSec || 0);
+  if (totalSec <= 0) return playsTxt;
+  const mins = totalSec / 60;
+  const listenTxt = mins < 1 ? "under a minute of listening" : `about ${Math.round(mins).toLocaleString("en-US")} min of listening`;
+  return `${playsTxt} · ${listenTxt}`;
 }
 
 /** The player shell. Metadata is injected server-side; the signed stream + peaks
@@ -124,9 +139,8 @@ export function renderPlayer(args: { token: string; story: PlayerStory }): strin
     (story.author ? `by <span class="nm">${esc(story.author)}</span> · ` : "") +
     `read by <span class="nm">${esc(story.fromName)}</span>`;
 
-  const app = env.WEB_APP_URL.replace(/\/+$/, "");
-  const tellHref = esc(`${app}/#tell?from=${encodeURIComponent(token)}`);
-  const noteHref = esc(`${app}/#voicenote?to=${encodeURIComponent(story.fromName)}&from=${encodeURIComponent(token)}`);
+  // The streamlined voice-memo recorder lives on this same backend origin.
+  const noteHref = esc(`/note/${encodeURIComponent(token)}`);
 
   const inner = `
 <p class="eyebrow">A story for you</p>
@@ -148,19 +162,15 @@ ${story.note ? `<p class="note">${esc(story.note)}</p>` : ""}
   <p class="hint" id="hint">Tap play to begin</p>
 </section>
 
-<!-- TODO: revisit "Add your voice" CTA (record own story / voice note). Hidden for now.
-<section class="ft-cta" aria-label="Add your voice">
+<section class="ft-cta" aria-label="Send a voice note back">
   <p class="lead">Add your voice</p>
-  <a class="ft-btn ft-btn-primary" href="${tellHref}">
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 15a4 4 0 0 0 4-4V6a4 4 0 1 0-8 0v5a4 4 0 0 0 4 4z"/><path d="M18 11a6 6 0 0 1-12 0H4a8 8 0 0 0 7 7.94V22H8.5v2h7v-2H13v-3.06A8 8 0 0 0 20 11h-2z"/></svg>
-    <span>Record your own story</span>
-  </a>
-  <a class="ft-btn ft-btn-ghost" href="${noteHref}">
-    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M4 7.5l8 6 8-6"/></svg>
+  <a class="ft-btn ft-btn-ghost" id="noteCta" href="${noteHref}">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15a4 4 0 0 0 4-4V6a4 4 0 1 0-8 0v5a4 4 0 0 0 4 4z"/><path d="M18 11a6 6 0 0 1-12 0H4a8 8 0 0 0 7 7.94V22H8.5v2h7v-2H13v-3.06A8 8 0 0 0 20 11h-2z"/></svg>
     <span>Record a voice note for ${esc(story.fromName)}</span>
   </a>
 </section>
--->
+
+<p class="stats" id="stats">${esc(statsLine(story.playCount, story.durationSec))}</p>
 
 <audio id="audio" preload="none" playsinline></audio>
 <script>
@@ -170,10 +180,34 @@ ${story.note ? `<p class="note">${esc(story.note)}</p>` : ""}
   var pp=document.getElementById('pp'), ic=document.getElementById('ic');
   var seek=document.getElementById('seek'), cur=document.getElementById('cur'), dur=document.getElementById('dur'), hint=document.getElementById('hint');
   var canvas=document.getElementById('wave'), ctx=canvas.getContext('2d');
+  var statsEl=document.getElementById('stats'), noteCta=document.getElementById('noteCta');
   var peaks=null, ready=false, dpr=Math.max(1, window.devicePixelRatio||1);
   var ICON_PLAY='M8 5v14l11-7z', ICON_PAUSE='M6 5h4v14H6zM14 5h4v14h-4z';
 
   function fmt(s){ s=Math.max(0,Math.floor(s||0)); var m=Math.floor(s/60), x=s%60; return m+':'+(x<10?'0':'')+x; }
+
+  // "Played N times · ~M min of listening" — listening time is estimated as plays × duration.
+  function renderStats(plays, durSec){
+    if(!statsEl) return;
+    plays=Math.max(0, plays||0);
+    var playsTxt = plays===1 ? 'Played once' : 'Played '+plays.toLocaleString('en-US')+' times';
+    var total = plays*(durSec||0);
+    if(total<=0){ statsEl.textContent=playsTxt; return; }
+    var mins=total/60;
+    var listenTxt = mins<1 ? 'under a minute of listening' : 'about '+Math.round(mins).toLocaleString('en-US')+' min of listening';
+    statsEl.textContent = playsTxt+' · '+listenTxt;
+  }
+
+  // Track taps on the "record a voice note" CTA (best-effort beacon; never blocks the link).
+  if(noteCta){
+    noteCta.addEventListener('click', function(){
+      try{
+        var url='/play/'+encodeURIComponent(token)+'/note-click';
+        if(navigator.sendBeacon){ navigator.sendBeacon(url); }
+        else { fetch(url,{ method:'POST', keepalive:true }).catch(function(){}); }
+      }catch(e){}
+    });
+  }
 
   function sizeCanvas(){
     var r=canvas.getBoundingClientRect();
@@ -242,6 +276,7 @@ ${story.note ? `<p class="note">${esc(story.note)}</p>` : ""}
     .then(function(data){
       audio.src = data.stream.url;
       ready=true;
+      if(data.story){ renderStats(data.story.playCount, data.story.durationSec); }
       if(data.story && data.story.peaksUrl){
         return fetch(data.story.peaksUrl).then(function(r){ return r.ok?r.json():null; }).then(function(p){ if(p&&p.peaks){ peaks=p.peaks; draw(); } });
       }
