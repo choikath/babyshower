@@ -148,6 +148,7 @@ ${story.note ? `<p class="note">${esc(story.note)}</p>` : ""}
   <p class="hint" id="hint">Tap play to begin</p>
 </section>
 
+<!-- TODO: revisit "Add your voice" CTA (record own story / voice note). Hidden for now.
 <section class="ft-cta" aria-label="Add your voice">
   <p class="lead">Add your voice</p>
   <a class="ft-btn ft-btn-primary" href="${tellHref}">
@@ -159,6 +160,7 @@ ${story.note ? `<p class="note">${esc(story.note)}</p>` : ""}
     <span>Record a voice note for ${esc(story.fromName)}</span>
   </a>
 </section>
+-->
 
 <audio id="audio" preload="none" playsinline></audio>
 <script>
