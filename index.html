@@ -1374,16 +1374,13 @@ function introScriptText(){
 }
 function stepIntro(){
   return `${ILLO.intro}<h2>The intro</h2>
+  <p class="lede">Add a warm hello and why you love this book — share a favorite memory or why it’s meaningful to you.</p>
   <div class="inrow">
     <div class="f"><label class="fld">Book title</label><input class="txt" oninput="draft.title=this.value;updateScript()" placeholder="The Gruffalo" value="${esc(draft.title)}"></div>
     <div class="f"><label class="fld">Author</label><input class="txt" oninput="draft.author=this.value;updateScript()" placeholder="Julia Donaldson" value="${esc(draft.author)}"></div>
   </div>
   <div class="inrow"><div class="f" style="min-width:200px"><label class="fld">Your name</label><input class="txt" oninput="draft.name=this.value;updateScript()" placeholder="Grandma Jo" value="${esc(draft.name)}"></div></div>
   <div class="script" id="scriptBox"></div>
-  <div class="introcue">
-    <div class="cue-h">Make it fun &amp; personal ✨</div>
-    <div class="cue-b">Add a warm hello, then tell them why you love this book — a favorite memory, a wish for them, or just a great big hug in your voice.</div>
-  </div>
   ${recBlock('intro')}
   ${actions(true,false)}`;
 }
