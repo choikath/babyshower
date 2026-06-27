@@ -1117,65 +1117,13 @@ async function startFlow(){
    button. Saved to the same inbox, tagged with a cross-backend-safe marker
    kept inside the title so it renders distinctly on LOCAL / Supabase / Fly API.
 ==================================================================== */
-var VOICENOTE=false;          // are we in the voice-note flow?
-var VN_READER='';             // "to="   — who the note is for (the original reader)
-var ORIGIN_TOKEN='';          // "from=" — capability token of the story they tapped
-var VN_TAG='[voicenote]';     // sentinel kept inside the title (survives every backend)
-
-var ILLO_VN='<svg class="illo" width="60" height="60" viewBox="0 0 60 60" fill="none" stroke="#26231E" stroke-width="1.5" stroke-linejoin="round"><path d="M12 18h36a3 3 0 0 1 3 3v15a3 3 0 0 1-3 3H28l-8 6v-6h-8a3 3 0 0 1-3-3V21a3 3 0 0 1 3-3z"/><path d="M30 26c1.6-2.5 6-2 6 1.5 0 2.6-3.4 4-6 6.4-2.6-2.4-6-3.8-6-6.4 0-3.5 4.4-4 6-1.5z" fill="#A88A5C" stroke="none"/></svg>';
+/* Legacy in-app voice-note recorder retired in favor of the streamlined backend
+   recorder at /note/:token (reached from the player's "record a voice note" CTA).
+   These constants remain only to DETECT and render any pre-existing voice-note
+   Stories already in the inbox; ORIGIN_TOKEN is still set by the recorder boot. */
+var ORIGIN_TOKEN='';          // "from=" — capability token carried by a share link
+var VN_TAG='[voicenote]';     // sentinel kept inside legacy voice-note titles (detection only)
 var VN_AV_SVG='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M4 7.5l8 6 8-6"/></svg>';
-
-function startVoiceNote(){
-  // a quick voice note is ephemeral: start fresh, never resume a half-written story
-  draft={title:'',author:'',name:'',note:'',practice:null,intro:null,story:[],outro:null,chime:'',storyMode:null,storyId:null,isVoiceNote:true};
-  wizStep=0;lastDir=1;showView('record');renderVoiceNote();
-}
-function renderVoiceNote(){
-  var cr=document.getElementById('crumbs'); if(cr)cr.innerHTML='';            // no wizard breadcrumbs
-  document.getElementById('stage').innerHTML='<div class="screen">'+stepVoiceNote()+'</div>';
-  updatePartsUI();                                                            // paint parts + set Send state
-}
-function stepVoiceNote(){
-  var who=VN_READER?esc(VN_READER):'';
-  var head=who?('Record a voice note for '+who):'Record a voice note';
-  var lede=who
-    ?('Say hello back to '+who+'! Record as many little takes as you like — reorder or delete any, then send.')
-    :('Leave a little message! Record as many takes as you like — reorder or delete any, then send.');
-  return ILLO_VN+'<h2>'+head+'</h2>'
-    +'<p class="lede">'+lede+'</p>'
-    +'<ul class="vn-check">'
-    +  '<li>Start by saying <b>your name</b>, so they know who it’s from.</li>'
-    +  '<li>Record <b>one or more</b> short takes — each becomes its own track.</li>'
-    +  '<li><b>Play them back</b> and tidy up before you send.</li>'
-    +'</ul>'
-    +storyBlock()
-    +'<div class="inrow"><div class="f" style="min-width:100%"><label class="fld">Who’s this from?</label><input class="txt" id="vnFrom" oninput="draft.name=this.value;saveDraftSoon()" placeholder="e.g. Theo &amp; Mum" value="'+esc(draft.name||'')+'"></div></div>'
-    +'<div class="actions"><span style="visibility:hidden">.</span><div class="right"><button class="finish" id="vnSendBtn" onclick="sendVoiceNote()" '+(draft.story.length?'':'disabled')+'>✉️ Send voice note</button></div></div>';
-}
-async function sendVoiceNote(){
-  if(!draft.story.length){toast('Record at least one take first');return;}
-  stopRec();stopAll();
-  var np=draft.story.length;
-  document.getElementById('stage').innerHTML='<div class="screen"><div class="encbox"><div class="spinner"></div><h2>Sending your voice note…</h2><p class="lede">Joining '+(np>1?('your '+np+' takes'):'your take')+' into one clip.</p></div></div>';
-  await new Promise(function(r){setTimeout(r,60);});
-  var result;
-  try{ result=await mergeTracks(); }
-  catch(e){ toast('Could not merge — please try again'); renderVoiceNote(); return; }
-  var from=(draft.name||'').trim()||'A loved one';
-  var id='v'+Date.now()+Math.floor(Math.random()*999);
-  var reader=(VN_READER||'').trim();
-  var vnTitle=VN_TAG+(reader?(' '+reader):'');
-  var item={id:id,from:from,book:'',author:'',note:'',title:vnTitle,date:Date.now(),inBedtime:false,audioId:id,ext:result.ext,includes:['Voice note'],bytes:result.blob.size,secs:result.secs||0,isVoiceNote:true,vnReader:reader,originToken:ORIGIN_TOKEN||''};
-  var _save;
-  try{ _save=await Backend.saveStory(item,result.blob); }
-  catch(e){ if(e&&e.message==='sign_in_cancelled'){ renderVoiceNote(); return; } console.error('[FoxTales] voice note save failed:',e); toast('Couldn’t send your voice note — '+((e&&e.message)||'unknown error')); renderVoiceNote(); return; }
-  var _sid=(_save&&_save.storyId)?_save.storyId:id;
-  _localBlobs[_sid]=result.blob;
-  lastTrack={id:_sid,ext:result.ext,book:'',from:from,parts:np,secs:result.secs||0,tapUrl:(_save&&_save.tapUrl)||'',isVoiceNote:true,vnReader:reader};
-  draft={title:'',author:'',name:'',note:'',practice:null,intro:null,story:[],outro:null,chime:'',storyMode:null,storyId:null,isVoiceNote:true};
-  clearDraftStore();
-  flyAway();
-}
 
 /* voice-note detection + inbox rendering (works across LOCAL / Supabase / Fly API) */
 function vnStrip(s){return (s||'').replace(/[“”"]/g,'').trim();}
@@ -1474,8 +1422,8 @@ function flyAway(){
 }
 function youDidIt(){
   setCrumbsDone();
-  var _ydIsVN = !!((lastTrack||{}).isVoiceNote);
-  var _backBtn = _ydIsVN ? '<button class="rr-tap linklike" onclick="startVoiceNote()">Record another voice note \u2192</button>' : (STORYTELLER ? '<button class="rr-tap linklike" onclick="startFlow()">Record another \u2192</button>' : '<button class="rr-tap linklike" onclick="showView(\'parent\')">Back to the playlist \u2192</button>');
+  var _ydIsVN = false;   // legacy voice-note completion screen retired; memos finish in the backend recorder
+  var _backBtn = STORYTELLER ? '<button class="rr-tap linklike" onclick="startFlow()">Record another \u2192</button>' : '<button class="rr-tap linklike" onclick="showView(\'parent\')">Back to the playlist \u2192</button>';
   var t=lastTrack||{};
   var who=t.from?esc(t.from):'A loved one';
   var book=t.book?('\u201C'+esc(t.book)+'\u201D'):'the story';
@@ -2445,9 +2393,11 @@ function ftParseVoiceNote(){var h=location.hash||'';var m=h.match(/^#\/?voicenot
 function ftParseSearch(){var q=(location.search||'').replace(/^\?/,'');var out={name:'',from:''};if(q){q.split('&').forEach(function(p){var kv=p.split('=');var k=decodeURIComponent(kv[0]||'');var v='';try{v=decodeURIComponent((kv[1]||'').replace(/\+/g,' '));}catch(e){v=(kv[1]||'');}if(k==='for')out.name=v;else if(k==='from')out.from=v;});}return out;}
 function ftIsAdminPath(){var pth=(location.pathname||'').replace(/\/+$/,'');return /\/admin$/i.test(pth);}
 (async function ftBoot(){
-  /* voice-note deep-link (hash) still works exactly as before */
+  /* Legacy voice-note deep-link → redirect to the streamlined backend recorder.
+     Old links look like #voicenote?to=<reader>&from=<token>; the token is all the
+     new recorder needs. Links without a token fall through to the normal app. */
   var vn=ftParseVoiceNote();
-  if(vn){VOICENOTE=true;VN_READER=vn.to||'';ORIGIN_TOKEN=vn.from||'';document.body.classList.add('storyteller');document.body.classList.add('voicenote');if(vn.name){try{await Backend.setChildName(vn.name);}catch(e){}}try{await renderAll();}catch(e){}if(vn.name)childNameCache=vn.name;startVoiceNote();return;}
+  if(vn){ var _vt=(vn.from||'').trim(); if(_vt){ location.replace(API_BASE+'/note/'+encodeURIComponent(_vt)); return; } }
   /* the parent dashboard now lives at /admin */
   if(ftIsAdminPath()){ renderAll(); return; }
   /* everything else (the site root) is the recorder; #tell or ?for=/?from= still carry params */
