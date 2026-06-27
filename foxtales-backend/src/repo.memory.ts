@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Repo } from "./repo.js";
-import type { Card, Family, Membership, Story, User, VoiceNote } from "./types.js";
+import type { Card, Family, Membership, Story, User, VoiceNote, EventInput, FunnelResult } from "./types.js";
+import { RECORD_FUNNEL, eventMatchesStage } from "./analytics.js";
 
 /**
  * No external services required. Useful for `DB_DRIVER=memory` local demos and
@@ -144,6 +145,33 @@ export class MemoryRepo implements Repo {
   async touchVoiceNotePlayed(id: string): Promise<void> {
     const v = this.voiceNotes.get(id);
     if (v && !v.playedAt) v.playedAt = this.now();
+  }
+
+  private events: Array<EventInput & { ts: number }> = [];
+  async insertEvents(events: EventInput[]): Promise<void> {
+    const now = Date.now();
+    for (const e of events) this.events.push({ ...e, ts: now });
+  }
+  async getRecordFunnel(sinceHours: number): Promise<FunnelResult> {
+    const cutoff = Date.now() - sinceHours * 3600_000;
+    const rows = this.events.filter((e) => (e.flow ?? null) === "record_own" && e.sessionId && e.ts > cutoff);
+    // group by session
+    const bySession = new Map<string, { device: string | null; flags: boolean[] }>();
+    for (const e of rows) {
+      const sid = e.sessionId!;
+      let g = bySession.get(sid);
+      if (!g) { g = { device: e.deviceId ?? null, flags: RECORD_FUNNEL.map(() => false) }; bySession.set(sid, g); }
+      if (e.deviceId) g.device = e.deviceId;
+      RECORD_FUNNEL.forEach((s, i) => { if (eventMatchesStage(e, s)) g!.flags[i] = true; });
+    }
+    const sessions = [...bySession.values()];
+    const stages = RECORD_FUNNEL.map((s, i) => {
+      const hit = sessions.filter((g) => g.flags[i]);
+      const devices = new Set(hit.map((g) => g.device).filter(Boolean));
+      return { key: s.key, label: s.label, sessions: hit.length, devices: devices.size };
+    });
+    const totalDevices = new Set(sessions.map((g) => g.device).filter(Boolean)).size;
+    return { sinceHours, stages, totalSessions: sessions.length, totalDevices };
   }
 
   async createCard(input: { familyId: string; token: string }): Promise<Card> {

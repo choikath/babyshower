@@ -77,6 +77,36 @@ export interface Card {
   createdAt: string;
 }
 
+// One analytics event in the append-only stream (spec: recording-flow funnel).
+export interface EventInput {
+  event: string;
+  clientTs?: string | null;
+  sessionId?: string | null;
+  deviceId?: string | null;
+  userId?: string | null;
+  familyId?: string | null;
+  flow?: string | null;
+  step?: string | null;
+  props?: Record<string, unknown> | null;
+  ua?: string | null;
+  ipHash?: string | null;
+  source?: "client" | "server";
+}
+
+// One stage of the record-your-own funnel (admin dashboard view).
+export interface FunnelStage {
+  key: string;
+  label: string;
+  sessions: number;
+  devices: number;
+}
+export interface FunnelResult {
+  sinceHours: number;
+  stages: FunnelStage[];
+  totalSessions: number;
+  totalDevices: number;
+}
+
 // Discriminated result of resolving a tapped token (used by both /p and /play).
 export type ResolveResult =
   | { kind: "not_found" }

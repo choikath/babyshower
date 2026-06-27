@@ -1,4 +1,4 @@
-import type { Card, Family, Membership, Story, StoryStatus, User, VoiceNote } from "./types.js";
+import type { Card, Family, Membership, Story, StoryStatus, User, VoiceNote, EventInput, FunnelResult } from "./types.js";
 import { env } from "./env.js";
 
 export interface Repo {
@@ -58,6 +58,10 @@ export interface Repo {
   revokeCard(id: string): Promise<Card | null>;
   touchCardLastTapped(id: string): Promise<void>;
   listCardsForFamily(familyId: string): Promise<Card[]>;
+
+  // analytics events
+  insertEvents(events: EventInput[]): Promise<void>;
+  getRecordFunnel(sinceHours: number): Promise<FunnelResult>;
 }
 
 let repoSingleton: Repo | null = null;
@@ -74,4 +78,4 @@ export async function getRepo(): Promise<Repo> {
   return repoSingleton;
 }
 
-export type { Card, Family, Membership, Story, StoryStatus, User, VoiceNote };
+export type { Card, Family, Membership, Story, StoryStatus, User, VoiceNote, EventInput, FunnelResult };

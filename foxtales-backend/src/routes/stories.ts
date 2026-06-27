@@ -37,6 +37,8 @@ storiesRouter.post(
         wantsIntro: z.boolean().optional(),
         wantsOutro: z.boolean().optional(),
         wantsChime: z.boolean().optional(),
+        sessionId: z.string().max(64).optional(),
+        deviceId: z.string().max(64).optional(),
       })
       .parse(req.body);
 
@@ -53,6 +55,15 @@ storiesRouter.post(
       note: body.note ?? null,
       parts: body.parts,
     });
+
+    // Server-truth funnel event: a story row was created (the reliable conversion
+    // tail even if the client's beacon is lost). Best-effort.
+    repo.insertEvents([{
+      event: "story_created", source: "server", flow: "record_own", step: "finish",
+      sessionId: body.sessionId ?? null, deviceId: body.deviceId ?? null, userId: req.userId ?? null,
+      familyId: body.familyId,
+      props: { storyId: story.id, parts: body.parts, hasAuthor: !!body.author, hasNote: !!body.note, anon: !req.userId },
+    }]).catch(() => {});
 
     const f = body.familyId, s = story.id;
     const partUploads = await Promise.all(
@@ -95,9 +106,12 @@ storiesRouter.post(
         intro: z.string().optional(),
         outro: z.string().optional(),
         chime: z.string().optional(),
+        sessionId: z.string().max(64).optional(),
+        deviceId: z.string().max(64).optional(),
       })
       .parse(req.body);
 
+    const t0 = Date.now();
     const repo = await getRepo();
     const story = await repo.getStory(req.params.id!);
     if (!story) throw new HttpError(404, "story_not_found");
@@ -139,6 +153,14 @@ storiesRouter.post(
 
       // Clean up the stitch temp dir (holds the produced mp3).
       await rm(dirname(result.mp3Path), { recursive: true, force: true }).catch(() => {});
+
+      // Server-truth funnel event: the recording finished stitching and is now ready.
+      repo.insertEvents([{
+        event: "story_stitched", source: "server", flow: "record_own", step: "finish",
+        sessionId: body.sessionId ?? null, deviceId: body.deviceId ?? null, userId: req.userId ?? null,
+        familyId: story.familyId,
+        props: { storyId: story.id, ok: true, durationMs: Date.now() - t0, parts: body.parts.length, audioSec: updated?.durationSec ?? null },
+      }]).catch(() => {});
 
       // TODO(phase 2): APNs push to the family ("A new story arrived").
       res.json({ story: { id: updated!.id, status: updated!.status, durationSec: updated!.durationSec } });

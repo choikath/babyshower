@@ -20,11 +20,18 @@ cardsRouter.post(
   ipLimiter,
   optionalAuth,
   ah(async (req: Request, res: Response) => {
-    const body = z.object({ familyId: z.string().uuid() }).parse(req.body);
+    const body = z
+      .object({ familyId: z.string().uuid(), sessionId: z.string().max(64).optional(), deviceId: z.string().max(64).optional() })
+      .parse(req.body);
     await authorizeContribution(req, body.familyId, ["owner"]);
     const repo = await getRepo();
     const token = generateToken();
     const card = await repo.createCard({ familyId: body.familyId, token });
+    repo.insertEvents([{
+      event: "card_minted", source: "server", flow: "record_own", step: "finish",
+      sessionId: body.sessionId ?? null, deviceId: body.deviceId ?? null, userId: req.userId ?? null,
+      familyId: body.familyId, props: { cardId: card.id },
+    }]).catch(() => {});
     res.status(201).json({ cardId: card.id, token: card.token, capabilityUrl: capabilityUrl(card.token) });
   }),
 );
@@ -64,7 +71,9 @@ cardsRouter.post(
   ipLimiter,
   optionalAuth,
   ah(async (req: Request, res: Response) => {
-    const body = z.object({ storyId: z.string().uuid() }).parse(req.body);
+    const body = z
+      .object({ storyId: z.string().uuid(), sessionId: z.string().max(64).optional(), deviceId: z.string().max(64).optional() })
+      .parse(req.body);
     const repo = await getRepo();
     const card = await repo.getCard(req.params.id!);
     if (!card) throw new HttpError(404, "card_not_found");
@@ -72,6 +81,11 @@ cardsRouter.post(
     const story = await repo.getStory(body.storyId);
     if (!story || story.familyId !== card.familyId) throw new HttpError(400, "story_not_in_family");
     const updated = await repo.linkCard(card.id, story.id);
+    repo.insertEvents([{
+      event: "card_linked", source: "server", flow: "record_own", step: "finish",
+      sessionId: body.sessionId ?? null, deviceId: body.deviceId ?? null, userId: req.userId ?? null,
+      familyId: card.familyId, props: { cardId: card.id, storyId: story.id },
+    }]).catch(() => {});
     res.json({ card: { id: updated!.id, storyId: updated!.storyId } });
   }),
 );

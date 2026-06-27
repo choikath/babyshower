@@ -8,6 +8,7 @@ import { playerRouter } from "./routes/player.js";
 import { cardsRouter } from "./routes/cards.js";
 import { storiesRouter } from "./routes/stories.js";
 import { notesRouter } from "./routes/notes.js";
+import { eventsRouter } from "./routes/events.js";
 import { devSeed } from "./devseed.js";
 
 const app = express();
@@ -55,6 +56,7 @@ api.use(express.json({ limit: "1mb" }));
 api.use(cardsRouter);
 api.use(storiesRouter);
 api.use(notesRouter);
+api.use(eventsRouter);
 app.use("/api", api);
 
 // Dev-only signed local media (mirrors signed-URL storage without Supabase).

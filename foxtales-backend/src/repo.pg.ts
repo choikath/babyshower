@@ -1,6 +1,7 @@
 import { query } from "./db.js";
 import type { Repo } from "./repo.js";
-import type { Card, Family, Membership, Story, StoryStatus, User, VoiceNote, VoiceNoteStatus } from "./types.js";
+import type { Card, Family, Membership, Story, StoryStatus, User, VoiceNote, VoiceNoteStatus, EventInput, FunnelResult } from "./types.js";
+import { RECORD_FUNNEL } from "./analytics.js";
 
 // Row mappers (snake_case columns -> camelCase domain objects).
 const toFamily = (r: any): Family => ({ id: r.id, name: r.name, childName: r.child_name, createdAt: r.created_at.toISOString?.() ?? r.created_at });
@@ -138,6 +139,55 @@ export class PgRepo implements Repo {
   }
   async touchVoiceNotePlayed(id: string): Promise<void> {
     await query(`update voice_notes set played_at = coalesce(played_at, now()) where id = $1`, [id]);
+  }
+
+  async insertEvents(events: EventInput[]): Promise<void> {
+    if (!events.length) return;
+    const cols = ["event", "client_ts", "session_id", "device_id", "user_id", "family_id", "flow", "step", "props", "ua", "ip_hash", "source"];
+    const N = cols.length;
+    const tuples: string[] = [];
+    const values: unknown[] = [];
+    events.forEach((e, i) => {
+      const b = i * N;
+      tuples.push(
+        `($${b + 1},$${b + 2},$${b + 3},$${b + 4},$${b + 5}::uuid,$${b + 6}::uuid,$${b + 7},$${b + 8},$${b + 9}::jsonb,$${b + 10},$${b + 11},$${b + 12})`,
+      );
+      values.push(
+        e.event, e.clientTs ?? null, e.sessionId ?? null, e.deviceId ?? null, e.userId ?? null, e.familyId ?? null,
+        e.flow ?? null, e.step ?? null, JSON.stringify(e.props ?? {}), e.ua ?? null, e.ipHash ?? null, e.source ?? "client",
+      );
+    });
+    await query(`insert into events (${cols.join(",")}) values ${tuples.join(",")}`, values);
+  }
+
+  async getRecordFunnel(sinceHours: number): Promise<FunnelResult> {
+    // Stage flags are built from RECORD_FUNNEL (our own constant — not user input),
+    // so inlining them is safe; the only bound parameter is the time window.
+    const flags = RECORD_FUNNEL.map((s, i) => {
+      let c = `event = '${s.event}'`;
+      if (s.step) c += ` and step = '${s.step}'`;
+      if (s.prop) c += ` and props->>'${s.prop.key}' = '${s.prop.value}'`;
+      return `bool_or(${c}) as s${i}`;
+    }).join(",\n");
+    const sel = RECORD_FUNNEL.map(
+      (_s, i) => `count(*) filter (where s${i}) as c${i}, count(distinct device_id) filter (where s${i}) as d${i}`,
+    ).join(",\n");
+    const sql = `
+      with f as (
+        select session_id, max(device_id) as device_id,
+          ${flags}
+        from events
+        where flow = 'record_own' and session_id is not null
+          and ts > now() - ($1 || ' hours')::interval
+        group by session_id
+      )
+      select ${sel}, count(*) as total_sessions, count(distinct device_id) as total_devices from f`;
+    const { rows } = await query(sql, [String(sinceHours)]);
+    const r = rows[0] ?? {};
+    const stages = RECORD_FUNNEL.map((s, i) => ({
+      key: s.key, label: s.label, sessions: Number(r[`c${i}`] ?? 0), devices: Number(r[`d${i}`] ?? 0),
+    }));
+    return { sinceHours, stages, totalSessions: Number(r.total_sessions ?? 0), totalDevices: Number(r.total_devices ?? 0) };
   }
 
   async createCard(input: { familyId: string; token: string }): Promise<Card> {

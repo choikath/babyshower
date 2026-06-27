@@ -46,6 +46,10 @@ const Env = z
     SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
     SUPABASE_JWT_SECRET: z.string().optional(),
 
+    // Analytics: secret used to HMAC client IPs into a pseudonymous ip_hash for the
+    // events stream. Set a real value in production; rotating it re-anonymizes.
+    ANALYTICS_SALT: z.string().default("dev-analytics-salt-change-me"),
+
     // Local dev storage
     LOCAL_MEDIA_DIR: z.string().default("./.media"),
     LOCAL_SIGNING_SECRET: z.string().default("dev-only-insecure-secret-change-me"),
