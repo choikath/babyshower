@@ -31,8 +31,9 @@ body{background:var(--bg); color:var(--ink); font-family:var(--sans); min-height
 .title .nm{font-style:italic; color:var(--brass-deep)}
 .lede{font-family:var(--serif); font-size:18px; color:var(--muted); margin:0 0 26px; line-height:1.45}
 .rec-wrap{display:flex; flex-direction:column; align-items:center; gap:14px; margin:8px 0 6px}
-.timer{font-variant-numeric:tabular-nums; font-size:30px; letter-spacing:.04em; color:var(--ink)}
-.dot{display:inline-block; width:10px; height:10px; border-radius:50%; background:var(--danger); margin-right:8px; vertical-align:middle; opacity:0}
+.timer{font-family:var(--serif); font-weight:500; font-size:46px; line-height:1; letter-spacing:.01em; color:var(--ink); font-variant-numeric:tabular-nums; font-feature-settings:"tnum" 1; transition:color .2s ease}
+.recording .timer{color:var(--brass-deep)}
+.dot{display:inline-block; width:9px; height:9px; border-radius:50%; background:var(--danger); margin-right:10px; vertical-align:middle; opacity:0}
 .recording .dot{opacity:1; animation:pulse 1.1s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
 .recbtn{width:84px; height:84px; border-radius:50%; border:1.5px solid var(--brass); background:var(--bg); display:grid; place-items:center; cursor:pointer; transition:background .15s ease}
