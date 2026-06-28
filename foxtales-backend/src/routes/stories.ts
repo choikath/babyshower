@@ -183,8 +183,7 @@ storiesRouter.get(
     const familyId = z.string().uuid().parse(req.query.familyId);
     await authorizeFamilyRead(req, familyId);
     const repo = await getRepo();
-    const [family, stories, cards] = await Promise.all([
-      repo.getFamily(familyId),
+    const [stories, cards] = await Promise.all([
       repo.listStoriesForFamily(familyId),
       repo.listCardsForFamily(familyId),
     ]);
@@ -201,12 +200,12 @@ storiesRouter.get(
       if (!prev || c.createdAt > prev.createdAt) cardForStory.set(c.storyId, c);
     }
     res.json({
-      // Family-level recipient — every recording in this inbox is "for" this child.
-      childName: family?.childName ?? null,
       stories: stories.map((s) => {
         const card = cardForStory.get(s.id) ?? null;
         return {
-          id: s.id, title: s.title, author: s.author, fromName: s.fromName,
+          // `note` is the dedication the uploader/recorder typed — surfaced on each
+          // inbox entry. `capabilityUrl` is the recording's tap-to-play link.
+          id: s.id, title: s.title, author: s.author, fromName: s.fromName, note: s.note,
           status: s.status, durationSec: s.durationSec, parts: s.parts,
           playCount: s.playCount, noteCtaClicks: s.noteCtaClicks, createdAt: s.createdAt,
           capabilityUrl: card ? capabilityUrl(card.token) : null,
