@@ -177,6 +177,8 @@ the dashboard view before the app's JS swaps it. The tag is lifted in showView()
   @keyframes cf{0%{opacity:1;transform:translate(0,0) rotate(0)}100%{opacity:0;transform:translate(var(--dx),var(--dy)) rotate(420deg)}}
   /* inbox metadata */
   .byline{font-weight:700;font-size:.88rem;color:var(--ink);margin-top:1px}
+  /* who the recording is FOR (admin inbox) */
+  .forwho{display:inline-block;margin-top:5px;font-weight:800;font-size:.78rem;color:var(--coral-d);background:#FFECE9;border:1px solid #FBD3CC;border-radius:8px;padding:2px 9px}
   .fdetails{max-width:440px;margin:16px auto 0;width:100%;text-align:left}
   .fdlabel{font-weight:800;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--coral);margin-bottom:8px;text-align:center}
   .ta{min-height:80px;resize:vertical;line-height:1.5;font-family:inherit}
@@ -715,11 +717,15 @@ const API={
     if(!token){ this._byId={}; return { childName:childName, code:'----', items:[] }; }  // not signed in yet: empty inbox, no modal on load
     let data; try{ data=await _api('/api/stories?familyId='+encodeURIComponent(FAMILY_ID)); }
     catch(e){ console.warn('[FoxTales] inbox load failed:',e); this._byId={}; return { childName:childName, code:'----', items:[] }; }
+    // Backend now returns the family's child name (the recipient) \u2014 prefer it over the
+    // locally remembered one, and remember it so "for X" shows even before it's re-set.
+    if(data&&data.childName){ childName=data.childName; try{ localStorage.setItem('ft_childName',childName); }catch(e){} }
     const items=((data&&data.stories)||[]).filter(function(s){return s.status==='ready';}).map(function(s){return {
       id:s.id, from:s.fromName||'', book:s.title||'', author:s.author||'', note:'',
       title:s.title?('\u201C'+s.title+'\u201D'):'Bedtime story',
       date:s.createdAt?Date.parse(s.createdAt):Date.now(), inBedtime:false, audioId:s.id, ext:'mp3',
-      includes:(s.parts&&s.parts>1)?['Story \u00D7'+s.parts]:['Story'], bytes:0, secs:s.durationSec||0
+      includes:(s.parts&&s.parts>1)?['Story \u00D7'+s.parts]:['Story'], bytes:0, secs:s.durationSec||0,
+      forName:(data&&data.childName)||'', tapUrl:s.capabilityUrl||''
     };});
     this._byId={}; items.forEach(function(it){ API._byId[it.id]={inBedtime:false,ext:'mp3'}; });
     return { childName:childName, code:'----', items:items };
@@ -1216,6 +1222,7 @@ const LABELS=['Practice','Intro','Story','The End','Finish'];
 let wizStep=0,lastDir=1,lastTrack=null;
 let draft={title:'',author:'',name:'',note:'',practice:null,intro:null,story:[],outro:null,chime:'sfx:double_pop',storyMode:null,storyId:null};
 let childNameCache='your little one';
+let _ftForName='';   // family child name shown as "for X" on each inbox entry ('' when unknown)
 
 const CHIMES=[
 {kind:'sfx',key:'page_turn',e:'📖',label:'Page turn'},
@@ -1907,6 +1914,7 @@ async function renderAll(){
   const idx=await getIndex();
   const cn=document.getElementById('childName');if(cn)cn.value=idx.childName||'';
   childNameCache=idx.childName||'your little one';
+  _ftForName=(idx.childName||'').trim();
   const inbox=document.getElementById('inbox');
   inbox.innerHTML=idx.items.length?idx.items.map(it=>itemHTML(it,false)).join(''):'<div class="empty"><span class="big">🌙</span>No stories yet — start recording, or share a link.</div>';
   const bt=idx.items.filter(i=>i.inBedtime);
@@ -1997,11 +2005,14 @@ function itemHTML(it,isBt){
   const sz=it.bytes?(it.bytes>1048576?(it.bytes/1048576).toFixed(1)+'MB':Math.round(it.bytes/1024)+'KB'):'';
   const book=it.book?esc(it.book):(it.title?esc(it.title.replace(/[“”"]/g,'')):'Bedtime story');
   const by=[];if(it.author)by.push('by '+esc(it.author));if(it.from)by.push('read by '+esc(it.from));
+  const forWho=(it.forName||_ftForName||'').trim();
+  const tapUrl=(it.tapUrl||'').trim();
   return `<div class="item"><div class="top">
     <div class="av">${initials(it.from)||'♪'}</div>
     <div class="meta">
       <div class="who">${book} ${it.inBedtime?'<span class="pill">bedtime</span>':''}</div>
       ${by.length?`<div class="byline">${by.join(' · ')}</div>`:''}
+      ${forWho?`<div class="forwho">for ${esc(forWho)}</div>`:''}
       <div class="ttl">${d.toLocaleDateString()} · one ${(it.ext||'mp3').toUpperCase()} ${sz?'· '+sz:''}</div>
       ${it.note?`<div class="note-q">“${esc(it.note)}”</div>`:''}
       <div class="chips">${inc}</div>
@@ -2009,6 +2020,7 @@ function itemHTML(it,isBt){
         <button class="play" data-play="${it.id}" data-icon="▶" onclick="playStored(this,'${it.id}')">▶</button>
         ${isBt?'':`<button class="star-btn" title="Add to bedtime" onclick="toggleBt('${it.id}')">${it.inBedtime?'★':'☆'}</button>`}
         <button class="btn icon" onclick="dl('${it.id}','${it.ext||'mp3'}')">⬇ ${(it.ext||'mp3').toUpperCase()}</button>
+        ${(tapUrl&&ftIsAdminPath())?`<button class="btn icon" title="Copy this recording's tap-to-play link" data-copy="${esc(tapUrl)}" onclick="ftCopy(this.getAttribute('data-copy'),this)">🔗 Copy link</button>`:''}
         ${isBt?`<button class="btn icon" onclick="toggleBt('${it.id}')">Remove</button>`:''}
         <button class="btn icon" onclick="delItem('${it.id}')">Delete</button>
       </div>

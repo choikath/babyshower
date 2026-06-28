@@ -9,6 +9,11 @@ import { ipLimiter } from "../ratelimit.js";
 import { getRepo } from "../repo.js";
 import { getStorage } from "../storage/index.js";
 import { stitch, type StitchManifest } from "../stitch.js";
+import { env } from "../env.js";
+import type { Card } from "../types.js";
+
+/** The tap-to-play capability URL for a card token (same shape as /cards). */
+const capabilityUrl = (token: string): string => `${env.PUBLIC_BASE_URL}/p/${token}`;
 
 export const storiesRouter: Router = Router();
 
@@ -178,13 +183,35 @@ storiesRouter.get(
     const familyId = z.string().uuid().parse(req.query.familyId);
     await authorizeFamilyRead(req, familyId);
     const repo = await getRepo();
-    const stories = await repo.listStoriesForFamily(familyId);
+    const [family, stories, cards] = await Promise.all([
+      repo.getFamily(familyId),
+      repo.listStoriesForFamily(familyId),
+      repo.listCardsForFamily(familyId),
+    ]);
+    // Map each story to the live card pointing at it, so the inbox can surface
+    // the tap-to-play capability URL next to the recording. A story can be
+    // re-pointed across cards over time — keep the most recently created, live
+    // (non-revoked) one. The admin reads the inbox via ADMIN_EMAILS without a
+    // membership row, so /api/cards (membership-gated) is not an option for them
+    // — folding the URL into this response is what makes it visible.
+    const cardForStory = new Map<string, Card>();
+    for (const c of cards) {
+      if (!c.storyId || c.revokedAt) continue;
+      const prev = cardForStory.get(c.storyId);
+      if (!prev || c.createdAt > prev.createdAt) cardForStory.set(c.storyId, c);
+    }
     res.json({
-      stories: stories.map((s) => ({
-        id: s.id, title: s.title, author: s.author, fromName: s.fromName,
-        status: s.status, durationSec: s.durationSec, parts: s.parts,
-        playCount: s.playCount, noteCtaClicks: s.noteCtaClicks, createdAt: s.createdAt,
-      })),
+      // Family-level recipient — every recording in this inbox is "for" this child.
+      childName: family?.childName ?? null,
+      stories: stories.map((s) => {
+        const card = cardForStory.get(s.id) ?? null;
+        return {
+          id: s.id, title: s.title, author: s.author, fromName: s.fromName,
+          status: s.status, durationSec: s.durationSec, parts: s.parts,
+          playCount: s.playCount, noteCtaClicks: s.noteCtaClicks, createdAt: s.createdAt,
+          capabilityUrl: card ? capabilityUrl(card.token) : null,
+        };
+      }),
     });
   }),
 );
