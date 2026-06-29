@@ -1098,23 +1098,88 @@ async function setIndex(i){/* legacy whole-index write — superseded by targete
 
 /* ---------- draft autosave (resumable) ---------- */
 const DRAFTK='sn_draft_v1';
-async function dbGetP(k){if(hasStore){try{const r=await window.storage.get(k,false);return r?r.value:(k in mem?mem[k]:null);}catch(e){return (k in mem)?mem[k]:null;}}return (k in mem)?mem[k]:null;}
-async function dbSetP(k,v){if(hasStore){try{await window.storage.set(k,v,false);}catch(e){}}mem[k]=v;return true;}
-async function dbDelP(k){if(hasStore){try{await window.storage.delete(k,false);}catch(e){}}delete mem[k];}
+/* Where the resumable draft is kept:
+   - Special wrapper host (window.storage present): unchanged behaviour.
+   - Plain browser: IndexedDB, which has a MUCH larger quota (the whole draft,
+     audio included, fits) and survives a reload. Any IndexedDB failure quietly
+     falls back to the in-memory `mem` store for this sitting and never blocks
+     recording, so a slow/long story is no longer cut short by a storage warning. */
+const useIDB=!hasStore;
+const IDB_DB='foxtales',IDB_STORE='draft';
+let _idbP=null,_idbDead=false;
+function idbOpen(){
+  if(_idbDead)return Promise.reject(new Error('idb-down'));
+  if(_idbP)return _idbP;
+  _idbP=new Promise(function(res,rej){
+    let to=null;
+    try{
+      if(typeof indexedDB==='undefined'||!indexedDB){_idbDead=true;rej(new Error('no-idb'));return;}
+      const rq=indexedDB.open(IDB_DB,1);
+      to=setTimeout(function(){_idbDead=true;rej(new Error('idb-timeout'));},4000);
+      rq.onupgradeneeded=function(){try{rq.result.createObjectStore(IDB_STORE);}catch(e){}};
+      rq.onsuccess=function(){if(to)clearTimeout(to);res(rq.result);};
+      rq.onerror=function(){if(to)clearTimeout(to);_idbDead=true;rej(rq.error||new Error('idb-open'));};
+      rq.onblocked=function(){if(to)clearTimeout(to);_idbDead=true;rej(new Error('idb-blocked'));};
+    }catch(e){if(to)clearTimeout(to);_idbDead=true;rej(e);}
+  });
+  return _idbP;
+}
+function idbDo(mode,fn){
+  return idbOpen().then(function(db){
+    return new Promise(function(res,rej){
+      let out,tx;
+      try{tx=db.transaction(IDB_STORE,mode);}catch(e){rej(e);return;}
+      tx.oncomplete=function(){res(out);};
+      tx.onerror=function(){rej(tx.error||new Error('idb-tx'));};
+      tx.onabort=function(){rej(tx.error||new Error('idb-abort'));};
+      let rq;try{rq=fn(tx.objectStore(IDB_STORE));}catch(e){rej(e);return;}
+      if(rq)rq.onsuccess=function(){out=rq.result;};
+    });
+  });
+}
+function idbGet(k){return idbDo('readonly',function(os){return os.get(k);});}
+function idbSet(k,v){return idbDo('readwrite',function(os){return os.put(v,k);});}
+function idbDel(k){return idbDo('readwrite',function(os){return os.delete(k);});}
+async function dbGetP(k){
+  if(useIDB&&!_idbDead){
+    try{const r=await idbGet(k);if(r!=null)return r;}catch(e){}   /* empty key or unhealthy IDB -> fall through */
+  }
+  if(hasStore){try{const r=await window.storage.get(k,false);return r?r.value:(k in mem?mem[k]:null);}catch(e){return (k in mem)?mem[k]:null;}}
+  return (k in mem)?mem[k]:null;
+}
+async function dbSetP(k,v){   /* resolves true only when the value is durably stored */
+  mem[k]=v;
+  if(useIDB&&!_idbDead){
+    try{await idbSet(k,v);return true;}
+    catch(e){if(!_idbDead)return false;}   /* genuine write failure (quota); if IDB just died, fall through */
+  }
+  if(hasStore){
+    if(typeof v==='string'&&v.length>4500000)return false;   /* small native-bridge cap */
+    try{await window.storage.set(k,v,false);}catch(e){return false;}
+  }
+  return true;   /* plain-browser, in-memory only: best effort, bounded by RAM */
+}
+async function dbDelP(k){
+  delete mem[k];
+  if(useIDB){try{await idbDel(k);}catch(e){}}
+  if(hasStore){try{await window.storage.delete(k,false);}catch(e){}}
+}
 function draftHasContent(){return !!(draft&&((draft.story&&draft.story.length)||draft.intro||draft.outro||(draft.title||'').trim()||(draft.name||'').trim()));}
-let _dsT=null,_dsWarned=false;
+let _dsT=null,_dsWarned=false,_dsChain=Promise.resolve();
 function saveDraftSoon(){clearTimeout(_dsT);_dsT=setTimeout(saveDraftNow,500);}
-async function saveDraftNow(){
+function saveDraftNow(){_dsChain=_dsChain.then(_saveDraftNow);return _dsChain;}
+async function _saveDraftNow(){
   if(draft&&draft.isVoiceNote)return;   // quick voice notes are ephemeral
   try{
     if(!draftHasContent()){await dbDelP(DRAFTK);return;}
     const d=Object.assign({},draft);delete d.practice;
     const s=JSON.stringify({draft:d,wizStep:wizStep,t:Date.now()});
-    if(s.length>4500000){if(!_dsWarned){toast('Draft too big to autosave \u2014 finish soon!');_dsWarned=true;}return;}
-    await dbSetP(DRAFTK,s);
+    const ok=await dbSetP(DRAFTK,s);
+    if(ok){_dsWarned=false;}
+    else if(!_dsWarned){toast('Auto-save is full \u2014 your recording is fine, just finish before you leave this page.');_dsWarned=true;}
   }catch(e){}
 }
-async function clearDraftStore(){clearTimeout(_dsT);await dbDelP(DRAFTK);}
+async function clearDraftStore(){clearTimeout(_dsT);_dsWarned=false;_dsChain=_dsChain.then(function(){return dbDelP(DRAFTK);});return _dsChain;}
 function storedDraftHasContent(d){return !!(d&&d.draft&&((d.draft.story&&d.draft.story.length)||d.draft.intro||d.draft.outro||(d.draft.title||'').trim()));}
 async function updateResumeBar(){
   const el=document.getElementById('resumeBar'); if(!el)return;
@@ -1122,7 +1187,7 @@ async function updateResumeBar(){
   try{d=raw?JSON.parse(raw):null;}catch(e){d=null;}
   if(!storedDraftHasContent(d)){el.innerHTML='';return;}
   const np=(d.draft.story||[]).length;
-  const bits=[];if(np)bits.push(np+' part'+(np>1?'s':''));if((d.draft.title||'').trim())bits.push('\u201C'+esc(d.draft.title.trim())+'\u201D');
+  const bits=[];if(np)bits.push(np+' page'+(np>1?'s':''));if((d.draft.title||'').trim())bits.push('\u201C'+esc(d.draft.title.trim())+'\u201D');
   el.innerHTML='<div class="card resume"><div style="flex:1"><b>\uD83D\uDC4B Welcome back!</b> You have a story in progress'+(bits.length?(' \u2014 '+bits.join(' of ')):'')+'.</div><div class="resumebtns"><button class="btn sm" onclick="resumeDraft()">Resume</button><button class="btn ghost sm" onclick="discardDraft()">Discard</button></div></div>';
 }
 async function resumeDraft(){
@@ -1279,27 +1344,27 @@ function storyBlock(){
     <button class="recbtn" id="recBtn_story" onclick="toggleRec('story')">${MIC_SVG}</button>
     <canvas class="wavecanvas hidden" id="wave_story" width="280" height="44"></canvas>
     <div class="rectime" id="timer_story">0:00</div>
-    <div class="rechint" id="hint_story">Tap to record Part ${draft.story.length+1}</div>
-    <div><button class="uplink" onclick="document.getElementById('file_story').click()">or upload files \u2014 each adds a part</button></div>
+    <div class="rechint" id="hint_story">Tap to record Page ${draft.story.length+1}</div>
+    <div><button class="uplink" onclick="document.getElementById('file_story').click()">or upload files \u2014 each adds a page</button></div>
     <input id="file_story" type="file" accept="audio/*" multiple style="display:none" onchange="handleUpload(event,'story')">
   </div>`;
 }
 function partRow(p,i){
   const n=draft.story.length;
   return `<div class="part"><span class="pnum">${i+1}</span>
-    <div class="pmeta"><div class="pname">Part ${i+1}</div><div class="psecs">${p.secs?fmt(p.secs):'\u2014'}</div></div>
+    <div class="pmeta"><div class="pname">Page ${i+1}</div><div class="psecs">${p.secs?fmt(p.secs):'\u2014'}</div></div>
     <div class="pctl">
       <button class="pbtn play" data-icon="\u25B6" title="Play" onclick="playTake('${p.k}',this)">\u25B6</button>
       <button class="pbtn" title="Move up" onclick="movePart(${i},-1)" ${i===0?'disabled':''}>\u2191</button>
       <button class="pbtn" title="Move down" onclick="movePart(${i},1)" ${i===n-1?'disabled':''}>\u2193</button>
-      <button class="pbtn del2" title="Delete part" onclick="deletePart(${i})">\uD83D\uDDD1</button>
+      <button class="pbtn del2" title="Delete page" onclick="deletePart(${i})">\uD83D\uDDD1</button>
     </div></div>`;
 }
 function updatePartsUI(){
   const el=document.getElementById('partsList'); if(!el)return;
   el.innerHTML=draft.story.map(partRow).join('');
   const recording=(mr&&mr.state==='recording')||cdT;
-  const h=document.getElementById('hint_story'); if(h&&!recording)h.textContent='Tap to record Part '+(draft.story.length+1);
+  const h=document.getElementById('hint_story'); if(h&&!recording)h.textContent='Tap to record Page '+(draft.story.length+1);
   var _vnSend=document.getElementById('vnSendBtn'); if(_vnSend)_vnSend.disabled=!draft.story.length;
 }
 function deleteTake(slot){
@@ -1318,7 +1383,7 @@ function deletePart(i){
   if(waKey==='draft_'+t.k)stopAll();
   delete _bufCache['draft_'+t.k];
   draft.story.splice(i,1);
-  track('part_deleted',{index:i});updatePartsUI();toast('Part deleted');saveDraftSoon();
+  track('part_deleted',{index:i});updatePartsUI();toast('Page deleted');saveDraftSoon();
 }
 function movePart(i,d){
   const j=i+d; if(j<0||j>=draft.story.length)return;
@@ -1405,11 +1470,11 @@ function stepStory(){
 function stepStoryFree(){
   const grid=CHIMES.map(function(c){const spec=(c.kind==='sfx'?'sfx:':'synth:')+(c.key||c.id);return `<button class="schip ${draft.chime===spec?'sel':''}" onclick="pickChime('${spec}',this)">${c.e} ${c.label}</button>`;}).join('')+`<button class="schip ${draft.chime?'':'sel'}" onclick="pickChime('',this)">\uD83D\uDEAB No sound</button>`;
   return `${ILLO.story}<h2>The story</h2>
-  <p class="lede">Read a page or two at a time, and <b>tap stop at each page turn</b>. Every part can be replayed, re-recorded, or reordered \u2014 no need for one perfect take!</p>
+  <p class="lede">Read a page or two at a time, and <b>tap stop at each page turn</b>. Every page can be replayed, re-recorded, or reordered \u2014 no need for one perfect take!</p>
   ${storyBlock()}
   <details class="pt"><summary>\uD83D\uDD16 Page-turn sound: <b id="chimeName">${chimeLabel()}</b></summary>
     <div class="ptbody">
-      <div class="tip">We\u2019ll tuck this little sound <b>between your parts</b> automatically \u2014 like turning the page. Tap to hear &amp; choose:</div>
+      <div class="tip">We\u2019ll tuck this little sound <b>between your pages</b> automatically \u2014 like turning the page. Tap to hear &amp; choose:</div>
       <div class="sgrid" id="chimeGrid">${grid}</div>
       <div class="pixmini">More free sounds: <a href="https://pixabay.com/sound-effects/search/page-turn/" target="_blank" rel="noopener">page turns \u2197</a><a href="https://pixabay.com/sound-effects/search/chime/" target="_blank" rel="noopener">chimes \u2197</a></div>
     </div>
@@ -1432,7 +1497,7 @@ function stepFinish(){
   <p class="lede">Now we\u2019ll stitch these all together into a single <b>MP3</b>, ready for storytime!</p>
   <div class="summary">
     ${row(!!draft.intro,'Intro',draft.intro?'included':'skipped')}
-    ${row(np>0,'Story',np>0?(np+' part'+(np>1?'s':'')+(tot?' \u00B7 '+fmt(tot):'')):'\u2014 needed \u2014')}
+    ${row(np>0,'Story',np>0?(np+' page'+(np>1?'s':'')+(tot?' \u00B7 '+fmt(tot):'')):'\u2014 needed \u2014')}
     ${(np>1&&draft.chime)?row(true,'Page-turn sound',chimeLabel()):''}
     ${row(!!draft.outro,'The End',draft.outro?'included':'skipped')}
     ${row(false,'Sound check','deleted',true)}
@@ -1454,7 +1519,7 @@ function updateScript(){const el=document.getElementById('scriptBox');if(el)el.i
 function noteInput(el){var w=el.value.trim()?el.value.trim().split(/\s+/).filter(Boolean):[];if(w.length>100){w=w.slice(0,100);el.value=w.join(' ');}draft.note=el.value;var c=document.getElementById('noteCount');if(c){c.textContent=w.length+' / 100 words';c.style.color=w.length>=100?'var(--coral)':'var(--muted)';}saveDraftSoon();}
 function goStep(n){if(n<0)return;stopRec();stopAll();stopGuided();if(n<wizStep)track('step_back',{from:STAGES[wizStep],to:STAGES[Math.min(4,Math.max(0,n))]});lastDir=(n<wizStep)?-1:1;wizStep=Math.min(4,Math.max(0,n));renderWizard();}
 function nextStep(){
-  if(STAGES[wizStep]==='story' && !draft.story.length){toast('Record at least one part first');return;}
+  if(STAGES[wizStep]==='story' && !draft.story.length){toast('Record at least one page first');return;}
   track('step_completed',{step:_ftStep||STAGES[wizStep]});
   if(STAGES[wizStep]==='practice'){stopRec();stopAll();lastDir=1;wizStep=1;rockAndRoll();return;}
   goStep(wizStep+1);
@@ -1484,7 +1549,7 @@ function youDidIt(){
   var t=lastTrack||{};
   var who=t.from?esc(t.from):'A loved one';
   var book=t.book?('\u201C'+esc(t.book)+'\u201D'):'the story';
-  var stats=(t.parts?(t.parts+' '+(_ydIsVN?'take':'part')+(t.parts>1?'s':'')):'')+(t.secs?((t.parts?' \u00B7 ':'')+fmt(t.secs)+' of your voice'):'');
+  var stats=(t.parts?(t.parts+' '+(_ydIsVN?'take':'page')+(t.parts>1?'s':'')):'')+(t.secs?((t.parts?' \u00B7 ':'')+fmt(t.secs)+' of your voice'):'');
   var _ydReader=t.vnReader?esc(t.vnReader):'';
   var _ydHead=_ydIsVN?'Your voice note is on its way!':'It\u2019s on its way!';
   var _ydLede=_ydIsVN?(who+'\u2019s voice note'+(_ydReader?(' for '+_ydReader):'')+' is on its way.'):(who+'\u2019s recording of '+book+' is on its way to the bedtime playlist.');
@@ -1546,7 +1611,7 @@ function beginRecording(slot){
     if(slot==='story'){
       draft.story.push(take);
       updatePartsUI();
-      const tm=document.getElementById('timer_story');if(tm)tm.textContent='Part '+draft.story.length+' saved \u2713';
+      const tm=document.getElementById('timer_story');if(tm)tm.textContent='Page '+draft.story.length+' saved \u2713';
       miniConfetti('recwrap_story');
     }else{
       draft[slot]=take;
@@ -1625,7 +1690,7 @@ async function handleUpload(ev,slot){
   }
   ev.target.value='';
   if(slot==='story'){
-    if(added){updatePartsUI();const tm=document.getElementById('timer_story');if(tm)tm.textContent='Part '+draft.story.length+' saved \u2713';miniConfetti('recwrap_story');}
+    if(added){updatePartsUI();const tm=document.getElementById('timer_story');if(tm)tm.textContent='Page '+draft.story.length+' saved \u2713';miniConfetti('recwrap_story');}
   }else if(draft[slot]){
     const t=draft[slot];
     const ra=document.getElementById('ra_'+slot);if(ra)ra.src=t.dataUrl;
@@ -1852,7 +1917,7 @@ function stopPreview(){
 async function previewFinal(btn){
   if(prevOn){stopPreview();return;}
   stopAll();
-  if(!draft.story.length){toast('Record at least one part first');return;}
+  if(!draft.story.length){toast('Record at least one page first');return;}
   track('preview_played',{parts:draft.story.length});
   btn.disabled=true;btn.textContent='\u23F3 Getting it ready\u2026';
   const c=ac(); if(c.state==='suspended'){try{await c.resume();}catch(e){}}
@@ -1880,7 +1945,7 @@ async function finishAndUpload(){
   track('recording_submitted',{parts:draft.story.length, total_sec:draft.story.reduce(function(a,b){return a+(b.secs||0);},0), has_intro:!!draft.intro, has_outro:!!draft.outro, has_chime:!!draft.chime});
   stopRec();stopAll();
   const np=draft.story.length;
-  document.getElementById('stage').innerHTML='<div class="screen"><div class="encbox"><div class="spinner"></div><h2>Stitching your story\u2026</h2><p class="lede">Joining '+(np>1?('all '+np+' parts'):'the parts')+' and saving as one MP3.</p></div></div>';
+  document.getElementById('stage').innerHTML='<div class="screen"><div class="encbox"><div class="spinner"></div><h2>Stitching your story\u2026</h2><p class="lede">Joining '+(np>1?('all '+np+' pages'):'the pages')+' and saving as one MP3.</p></div></div>';
   await new Promise(r=>setTimeout(r,60));
   const includes=[];if(draft.intro)includes.push('Intro');includes.push(np>1?('Story \u00D7'+np):'Story');if(draft.outro)includes.push('The End');
   let result;
@@ -1898,7 +1963,7 @@ async function finishAndUpload(){
   _localBlobs[_sid]=result.blob;
   lastTrack={id:_sid,ext:result.ext,book:(draft.title||'').trim(),from:from,parts:np,secs:result.secs||0,tapUrl:(_save&&_save.tapUrl)||''};
   draft={title:'',author:'',name:'',note:'',practice:null,intro:null,story:[],outro:null,chime:'sfx:double_pop',storyMode:null,storyId:null};
-  clearDraftStore();
+  await clearDraftStore();
   flyAway();
 }
 
@@ -2244,7 +2309,7 @@ function storyModeChooser(){
   <div class="kchoose">
     <div class="kcard" onclick="pickStoryMode('free')"><div class="kic">${MIC_MINI}</div>
       <div><h3>Record your own way${freeCount?` <span class="kbadge" style="background:#6E675C">${freeCount} saved</span>`:''}</h3>
-      <p>Read from any book in your own rhythm and tap stop at each page turn. Full control — replay, re-record, or reorder any part.</p></div></div>
+      <p>Read from any book in your own rhythm and tap stop at each page turn. Full control — replay, re-record, or reorder any page.</p></div></div>
     <div class="kcard" onclick="pickStoryMode('guided')"><div class="kic">${BOOK_MINI}</div>
       <div><h3>Read along, guided <span class="kbadge">New</span>${guidedDone?` <span class="kbadge" style="background:#6E675C">${guidedDone}/${N}</span>`:''}</h3>
       <p>We show a story one page at a time and the words light up as you read — like karaoke. Confirm each page, or do it again.</p></div></div>
