@@ -29,6 +29,7 @@ export interface Repo {
   listStoriesForFamily(familyId: string): Promise<Story[]>;
   incrementPlayCount(id: string): Promise<void>;
   incrementNoteCtaClicks(id: string): Promise<void>;
+  incrementFoxtalesClicks(id: string): Promise<void>;
 
   // voice notes (memos recorded back to a reader)
   createVoiceNote(input: {

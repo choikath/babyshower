@@ -75,6 +75,7 @@ export class MemoryRepo implements Repo {
       bedtimeOrder: null,
       playCount: 0,
       noteCtaClicks: 0,
+      foxtalesClicks: 0,
       createdAt: this.now(),
     };
     this.stories.set(s.id, s);
@@ -101,6 +102,10 @@ export class MemoryRepo implements Repo {
   async incrementNoteCtaClicks(id: string): Promise<void> {
     const s = this.stories.get(id);
     if (s) s.noteCtaClicks += 1;
+  }
+  async incrementFoxtalesClicks(id: string): Promise<void> {
+    const s = this.stories.get(id);
+    if (s) s.foxtalesClicks += 1;
   }
 
   async createVoiceNote(input: {

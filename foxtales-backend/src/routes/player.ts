@@ -89,3 +89,18 @@ playerRouter.post("/play/:token/note-click", ipLimiter, ah(async (req: Request, 
   }
   res.status(204).end();
 }));
+
+/**
+ * Best-effort click beacon for the player's "FoxTales" brand link (the footer link
+ * to foxtaleclub.com). Increments the story's foxtales_clicks. Fired via
+ * navigator.sendBeacon, so it returns 204 fast and never blocks the outbound tap.
+ */
+playerRouter.post("/play/:token/foxtales-click", ipLimiter, ah(async (req: Request, res: Response) => {
+  const token = req.params.token!;
+  const result = await resolveToken(token, { bump: false });
+  if ((result.kind === "ready" || result.kind === "processing") && result.story) {
+    const repo = await getRepo();
+    repo.incrementFoxtalesClicks(result.story.id).catch(() => {});
+  }
+  res.status(204).end();
+}));

@@ -8,6 +8,9 @@ This covers the database changes behind the four player/recording updates:
 2. **Voice-note CTA click tracking** — new column `stories.note_cta_clicks`.
 3. **Streamlined voice-memo recorder + admin Voice Memo Inbox** — new table
    `voice_notes` (+ RLS).
+4. **"FoxTales" brand-link click tracking** — new column `stories.foxtales_clicks`
+   (migration `0006_foxtales_clicks.sql`), incremented when someone taps the
+   "FoxTales" footer link on a story's player page.
 
 The Node service connects with the **service-role key** and bypasses RLS, so the
 app works the moment the tables/columns exist. The RLS file is defense-in-depth for
@@ -29,6 +32,7 @@ in earlier deploys, so for this change you only need `0003` then `0004`:
 # from foxtales-backend/
 psql "$DATABASE_URL" -f db/0003_voice_notes.sql
 psql "$DATABASE_URL" -f db/0004_voice_notes_rls.sql
+psql "$DATABASE_URL" -f db/0006_foxtales_clicks.sql   # "FoxTales" brand-link clicks
 ```
 
 ### Or via the Supabase SQL editor
@@ -91,3 +95,5 @@ Then, end-to-end:
    **Voice Memo Inbox** card should list and play it.
 5. `select note_cta_clicks from stories where id = '<story-id>';` increments each
    time the CTA is tapped.
+6. `select foxtales_clicks from stories where id = '<story-id>';` increments each
+   time the "FoxTales" footer link is tapped (POST `/play/<token>/foxtales-click`).

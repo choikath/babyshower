@@ -13,6 +13,7 @@ const toStory = (r: any): Story => ({
   parts: r.parts, audioKey: r.audio_key, peaksKey: r.peaks_key, status: r.status as StoryStatus,
   inBedtime: r.in_bedtime, bedtimeOrder: r.bedtime_order, playCount: r.play_count,
   noteCtaClicks: r.note_cta_clicks ?? 0,
+  foxtalesClicks: r.foxtales_clicks ?? 0,
   createdAt: r.created_at.toISOString?.() ?? r.created_at,
 });
 const toVoiceNote = (r: any): VoiceNote => ({
@@ -103,6 +104,9 @@ export class PgRepo implements Repo {
   }
   async incrementNoteCtaClicks(id: string): Promise<void> {
     await query(`update stories set note_cta_clicks = note_cta_clicks + 1 where id = $1`, [id]);
+  }
+  async incrementFoxtalesClicks(id: string): Promise<void> {
+    await query(`update stories set foxtales_clicks = foxtales_clicks + 1 where id = $1`, [id]);
   }
 
   async createVoiceNote(input: {

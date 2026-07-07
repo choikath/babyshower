@@ -103,7 +103,7 @@ ${smartBanner()}
 <body>
 <main class="frame">
 ${inner}
-<div class="foot"><a href="https://foxtaleclub.com" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">FoxTales</a></div>
+<div class="foot"><a id="ftLink" href="https://foxtaleclub.com" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">FoxTales</a></div>
 </main>
 </body>
 </html>`;
@@ -198,16 +198,26 @@ ${story.note ? `<p class="note">${esc(story.note)}</p>` : ""}
     statsEl.textContent = playsTxt+' · '+listenTxt;
   }
 
-  // Track taps on the "record a voice note" CTA (best-effort beacon; never blocks the link).
-  if(noteCta){
-    noteCta.addEventListener('click', function(){
-      try{
-        var url='/play/'+encodeURIComponent(token)+'/note-click';
-        if(navigator.sendBeacon){ navigator.sendBeacon(url); }
-        else { fetch(url,{ method:'POST', keepalive:true }).catch(function(){}); }
-      }catch(e){}
-    });
+  // Best-effort beacon helper (never blocks the navigation / outbound tap).
+  function beacon(path){
+    try{
+      var url='/play/'+encodeURIComponent(token)+path;
+      if(navigator.sendBeacon){ navigator.sendBeacon(url); }
+      else { fetch(url,{ method:'POST', keepalive:true }).catch(function(){}); }
+    }catch(e){}
   }
+
+  // Track taps on the "record a voice note" CTA.
+  if(noteCta){
+    noteCta.addEventListener('click', function(){ beacon('/note-click'); });
+  }
+
+  // Track taps on the "FoxTales" brand link in the footer. It's rendered after this
+  // script in the document, so delegate on document rather than binding it directly.
+  document.addEventListener('click', function(e){
+    var el = e.target;
+    if(el && el.closest && el.closest('#ftLink')){ beacon('/foxtales-click'); }
+  });
 
   function sizeCanvas(){
     var r=canvas.getBoundingClientRect();

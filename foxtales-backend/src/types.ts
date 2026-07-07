@@ -41,6 +41,7 @@ export interface Story {
   bedtimeOrder: number | null;
   playCount: number;
   noteCtaClicks: number; // times the player's "record a voice note" CTA was tapped
+  foxtalesClicks: number; // times the player's "FoxTales" brand link was tapped
   createdAt: string;
 }
 
