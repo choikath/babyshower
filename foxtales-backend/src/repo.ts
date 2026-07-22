@@ -28,6 +28,8 @@ export interface Repo {
   markStoryReady(id: string, patch: { audioKey: string; peaksKey: string; durationSec: number; parts: number }): Promise<Story | null>;
   listStoriesForFamily(familyId: string): Promise<Story[]>;
   incrementPlayCount(id: string): Promise<void>;
+  incrementPlayStartedCount(id: string): Promise<void>; // real play — audio 'play' event fired
+  addListenedMs(id: string, ms: number): Promise<void>; // accumulate measured playback time
   incrementNoteCtaClicks(id: string): Promise<void>;
   incrementFoxtalesClicks(id: string): Promise<void>;
 

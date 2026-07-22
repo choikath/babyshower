@@ -207,7 +207,8 @@ storiesRouter.get(
           // inbox entry. `capabilityUrl` is the recording's tap-to-play link.
           id: s.id, title: s.title, author: s.author, fromName: s.fromName, note: s.note,
           status: s.status, durationSec: s.durationSec, parts: s.parts,
-          playCount: s.playCount, noteCtaClicks: s.noteCtaClicks, foxtalesClicks: s.foxtalesClicks, createdAt: s.createdAt,
+          playCount: s.playCount, playStartedCount: s.playStartedCount, listenedMs: s.listenedMs,
+          noteCtaClicks: s.noteCtaClicks, foxtalesClicks: s.foxtalesClicks, createdAt: s.createdAt,
           capabilityUrl: card ? capabilityUrl(card.token) : null,
         };
       }),

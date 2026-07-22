@@ -39,7 +39,9 @@ export interface Story {
   status: StoryStatus;
   inBedtime: boolean;
   bedtimeOrder: number | null;
-  playCount: number;
+  playCount: number; // legacy "opens": incremented on every /p resolve (player-link load), NOT a real play
+  playStartedCount: number; // real plays — bumped when the audio 'play' event fires (once per player load)
+  listenedMs: number; // true accumulated playback time in ms (measured, not estimated)
   noteCtaClicks: number; // times the player's "record a voice note" CTA was tapped
   foxtalesClicks: number; // times the player's "FoxTales" brand link was tapped
   createdAt: string;

@@ -12,6 +12,8 @@ const toStory = (r: any): Story => ({
   title: r.title, author: r.author, note: r.note, durationSec: r.duration_sec === null ? null : Number(r.duration_sec),
   parts: r.parts, audioKey: r.audio_key, peaksKey: r.peaks_key, status: r.status as StoryStatus,
   inBedtime: r.in_bedtime, bedtimeOrder: r.bedtime_order, playCount: r.play_count,
+  playStartedCount: r.play_started_count ?? 0,
+  listenedMs: Number(r.listened_ms ?? 0),
   noteCtaClicks: r.note_cta_clicks ?? 0,
   foxtalesClicks: r.foxtales_clicks ?? 0,
   createdAt: r.created_at.toISOString?.() ?? r.created_at,
@@ -101,6 +103,12 @@ export class PgRepo implements Repo {
   }
   async incrementPlayCount(id: string): Promise<void> {
     await query(`update stories set play_count = play_count + 1 where id = $1`, [id]);
+  }
+  async incrementPlayStartedCount(id: string): Promise<void> {
+    await query(`update stories set play_started_count = play_started_count + 1 where id = $1`, [id]);
+  }
+  async addListenedMs(id: string, ms: number): Promise<void> {
+    await query(`update stories set listened_ms = listened_ms + $2 where id = $1`, [id, Math.max(0, Math.round(ms))]);
   }
   async incrementNoteCtaClicks(id: string): Promise<void> {
     await query(`update stories set note_cta_clicks = note_cta_clicks + 1 where id = $1`, [id]);

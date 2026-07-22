@@ -104,3 +104,41 @@ playerRouter.post("/play/:token/foxtales-click", ipLimiter, ah(async (req: Reque
   }
   res.status(204).end();
 }));
+
+/**
+ * A real play: the player's audio `play` event fired. The client beacons this once
+ * per player-page load (not on every pause/resume), so play_started_count reflects
+ * actual listens, distinct from the load-triggered play_count ("opens"). 204 fast.
+ */
+playerRouter.post("/play/:token/play-started", ipLimiter, ah(async (req: Request, res: Response) => {
+  const token = req.params.token!;
+  const result = await resolveToken(token, { bump: false });
+  if (result.kind === "ready" && result.story) {
+    const repo = await getRepo();
+    repo.incrementPlayStartedCount(result.story.id).catch(() => {});
+  }
+  res.status(204).end();
+}));
+
+// A single listened report can't add more than this (guards against a bad/abusive
+// client inflating the total). Real reports are tiny — the player flushes every ~15s.
+const MAX_LISTENED_MS_PER_REPORT = 4 * 60 * 60 * 1000; // 4 hours
+
+/**
+ * True listening time: the player reports a delta of *measured* playback (query
+ * `ms`) as it plays — periodically, and on pause/ended/pagehide via sendBeacon.
+ * The server adds it to listened_ms. Best-effort; validates and clamps the delta.
+ */
+playerRouter.post("/play/:token/listened", ipLimiter, ah(async (req: Request, res: Response) => {
+  const token = req.params.token!;
+  const raw = Math.floor(Number(req.query.ms));
+  if (Number.isFinite(raw) && raw > 0) {
+    const ms = Math.min(raw, MAX_LISTENED_MS_PER_REPORT);
+    const result = await resolveToken(token, { bump: false });
+    if (result.kind === "ready" && result.story) {
+      const repo = await getRepo();
+      repo.addListenedMs(result.story.id, ms).catch(() => {});
+    }
+  }
+  res.status(204).end();
+}));

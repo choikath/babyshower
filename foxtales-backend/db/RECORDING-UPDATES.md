@@ -2,15 +2,24 @@
 
 This covers the database changes behind the four player/recording updates:
 
-1. **Plays + listening time on the player page** — uses the existing
-   `stories.play_count` (incremented on every resolve). "Total listening time" is
-   *derived* as `play_count × duration_sec`, so **no schema change is required** for it.
+1. **Plays + listening time on the player page** — `stories.play_count` is
+   incremented on every resolve, which for the web player fires on *page load*
+   (the player's JS auto-fetches the stream). So it counts **opens**, not real
+   plays. Real plays and true listening time are tracked separately — see item 5.
 2. **Voice-note CTA click tracking** — new column `stories.note_cta_clicks`.
 3. **Streamlined voice-memo recorder + admin Voice Memo Inbox** — new table
    `voice_notes` (+ RLS).
 4. **"FoxTales" brand-link click tracking** — new column `stories.foxtales_clicks`
    (migration `0006_foxtales_clicks.sql`), incremented when someone taps the
    "FoxTales" footer link on a story's player page.
+5. **Real plays + measured listening time** — new columns
+   `stories.play_started_count` and `stories.listened_ms` (migration
+   `0007_real_plays.sql`). `play_started_count` is bumped when the audio `play`
+   event fires (once per player load, via `POST /play/:token/play-started`);
+   `listened_ms` accumulates *measured* playback time reported by the player
+   (`POST /play/:token/listened?ms=…`). `play_count` is left intact as the legacy
+   "opens" signal — historical values are **not** reclassified as plays. The player
+   page's "Played N times · ~M min listened" line now reads these measured columns.
 
 The Node service connects with the **service-role key** and bypasses RLS, so the
 app works the moment the tables/columns exist. The RLS file is defense-in-depth for
@@ -33,6 +42,7 @@ in earlier deploys, so for this change you only need `0003` then `0004`:
 psql "$DATABASE_URL" -f db/0003_voice_notes.sql
 psql "$DATABASE_URL" -f db/0004_voice_notes_rls.sql
 psql "$DATABASE_URL" -f db/0006_foxtales_clicks.sql   # "FoxTales" brand-link clicks
+psql "$DATABASE_URL" -f db/0007_real_plays.sql        # real plays + measured listening time
 ```
 
 ### Or via the Supabase SQL editor
@@ -97,3 +107,7 @@ Then, end-to-end:
    time the CTA is tapped.
 6. `select foxtales_clicks from stories where id = '<story-id>';` increments each
    time the "FoxTales" footer link is tapped (POST `/play/<token>/foxtales-click`).
+7. `select play_count, play_started_count, listened_ms from stories where id = '<story-id>';`
+   — `play_count` bumps on every player-page *load*; `play_started_count` bumps only
+   when you actually press **play** (once per load); `listened_ms` climbs by the real
+   time you spend listening (flushed every ~15s and on pause/close).

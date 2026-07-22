@@ -74,6 +74,8 @@ export class MemoryRepo implements Repo {
       inBedtime: false,
       bedtimeOrder: null,
       playCount: 0,
+      playStartedCount: 0,
+      listenedMs: 0,
       noteCtaClicks: 0,
       foxtalesClicks: 0,
       createdAt: this.now(),
@@ -98,6 +100,14 @@ export class MemoryRepo implements Repo {
   async incrementPlayCount(id: string): Promise<void> {
     const s = this.stories.get(id);
     if (s) s.playCount += 1;
+  }
+  async incrementPlayStartedCount(id: string): Promise<void> {
+    const s = this.stories.get(id);
+    if (s) s.playStartedCount += 1;
+  }
+  async addListenedMs(id: string, ms: number): Promise<void> {
+    const s = this.stories.get(id);
+    if (s) s.listenedMs += Math.max(0, Math.round(ms));
   }
   async incrementNoteCtaClicks(id: string): Promise<void> {
     const s = this.stories.get(id);

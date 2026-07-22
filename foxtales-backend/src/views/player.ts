@@ -115,18 +115,19 @@ export interface PlayerStory {
   fromName: string;
   note: string | null;
   durationSec: number | null;
-  playCount: number;
+  playStartedCount: number; // real plays (audio 'play' event)
+  listenedMs: number; // true measured listening time
 }
 
-/** A subtle "played N times · ~M min listened" line. Listening time is estimated
- * as plays × duration (no per-listen tracking) — accurate enough to be meaningful
- * without instrumenting every playback. */
-function statsLine(playCount: number, durationSec: number | null): string {
-  const plays = Math.max(0, playCount || 0);
-  const playsTxt = plays === 1 ? "Played once" : `Played ${plays.toLocaleString("en-US")} times`;
-  const totalSec = plays * (durationSec || 0);
-  if (totalSec <= 0) return playsTxt;
-  const mins = totalSec / 60;
+/** A subtle "played N times · ~M min listened" line. Both numbers are now *measured*:
+ * real plays (the audio 'play' event) and actual accumulated playback time — no
+ * estimate. Returns "" before the first real play so we don't render "Played 0 times". */
+function statsLine(plays: number, listenedMs: number): string {
+  const p = Math.max(0, plays || 0);
+  if (p <= 0) return "";
+  const playsTxt = p === 1 ? "Played once" : `Played ${p.toLocaleString("en-US")} times`;
+  const mins = Math.max(0, listenedMs || 0) / 60000;
+  if (mins <= 0) return playsTxt;
   const listenTxt = mins < 1 ? "under a minute of listening" : `about ${Math.round(mins).toLocaleString("en-US")} min of listening`;
   return `${playsTxt} · ${listenTxt}`;
 }
@@ -170,7 +171,7 @@ ${story.note ? `<p class="note">${esc(story.note)}</p>` : ""}
   </a>
 </section>
 
-<p class="stats" id="stats">${esc(statsLine(story.playCount, story.durationSec))}</p>
+<p class="stats" id="stats"${statsLine(story.playStartedCount, story.listenedMs) ? "" : " hidden"}>${esc(statsLine(story.playStartedCount, story.listenedMs))}</p>
 
 <audio id="audio" preload="none" playsinline></audio>
 <script>
@@ -184,18 +185,30 @@ ${story.note ? `<p class="note">${esc(story.note)}</p>` : ""}
   var peaks=null, ready=false, dpr=Math.max(1, window.devicePixelRatio||1);
   var ICON_PLAY='M8 5v14l11-7z', ICON_PAUSE='M6 5h4v14H6zM14 5h4v14h-4z';
 
+  // Measured playback stats (start from the server-rendered values, refreshed by /p).
+  var plays=${JSON.stringify(story.playStartedCount)}, listenedMs=${JSON.stringify(story.listenedMs)};
+  var playCounted=false;   // beacon a real play only once per page load
+  var lastCT=0;            // last currentTime seen while playing (for listened deltas)
+  var pendingMs=0;         // measured-but-unflushed playback time
+  var flushTimer=null;
+
   function fmt(s){ s=Math.max(0,Math.floor(s||0)); var m=Math.floor(s/60), x=s%60; return m+':'+(x<10?'0':'')+x; }
 
-  // "Played N times · ~M min of listening" — listening time is estimated as plays × duration.
-  function renderStats(plays, durSec){
+  // "Played N times · ~M min of listening" — both measured (real plays + actual
+  // playback time). Hidden until the first real play, to avoid "Played 0 times".
+  function renderStats(p, lms){
     if(!statsEl) return;
-    plays=Math.max(0, plays||0);
-    var playsTxt = plays===1 ? 'Played once' : 'Played '+plays.toLocaleString('en-US')+' times';
-    var total = plays*(durSec||0);
-    if(total<=0){ statsEl.textContent=playsTxt; return; }
-    var mins=total/60;
-    var listenTxt = mins<1 ? 'under a minute of listening' : 'about '+Math.round(mins).toLocaleString('en-US')+' min of listening';
-    statsEl.textContent = playsTxt+' · '+listenTxt;
+    p=Math.max(0, p||0);
+    if(p<=0){ statsEl.textContent=''; statsEl.hidden=true; return; }
+    var playsTxt = p===1 ? 'Played once' : 'Played '+p.toLocaleString('en-US')+' times';
+    var mins=Math.max(0, lms||0)/60000;
+    if(mins>0){
+      var listenTxt = mins<1 ? 'under a minute of listening' : 'about '+Math.round(mins).toLocaleString('en-US')+' min of listening';
+      statsEl.textContent = playsTxt+' · '+listenTxt;
+    } else {
+      statsEl.textContent = playsTxt;
+    }
+    statsEl.hidden=false;
   }
 
   // Best-effort beacon helper (never blocks the navigation / outbound tap).
@@ -267,6 +280,36 @@ ${story.note ? `<p class="note">${esc(story.note)}</p>` : ""}
   audio.addEventListener('ended', function(){ ic.querySelector('path').setAttribute('d', ICON_PLAY); pp.setAttribute('aria-label','Play'); });
   window.addEventListener('resize', sizeCanvas);
 
+  // ---- Real-play + listening-time tracking (measured; beaconed best-effort) ----
+  function stopTimer(){ if(flushTimer){ clearInterval(flushTimer); flushTimer=null; } }
+  function flushListened(){
+    var ms=Math.round(pendingMs);
+    if(ms>0){ pendingMs=0; listenedMs+=ms; beacon('/listened?ms='+ms); renderStats(plays, listenedMs); }
+  }
+  audio.addEventListener('play', function(){
+    lastCT=audio.currentTime;
+    if(!playCounted){                 // count one real play per page load, not per resume
+      playCounted=true;
+      beacon('/play-started');
+      plays+=1;                       // optimistic (the beacon just returns 204)
+      renderStats(plays, listenedMs);
+    }
+    if(!flushTimer){ flushTimer=setInterval(flushListened, 15000); } // survive long single-sitting listens
+  });
+  // Accumulate only genuine forward playback — excludes seeks and paused gaps.
+  audio.addEventListener('timeupdate', function(){
+    if(!audio.paused){
+      var dt=audio.currentTime-lastCT;
+      if(dt>0 && dt<1.5){ pendingMs+=dt*1000; }
+      lastCT=audio.currentTime;
+    }
+  });
+  audio.addEventListener('seeking', function(){ lastCT=audio.currentTime; }); // don't count the jump
+  audio.addEventListener('pause', function(){ flushListened(); stopTimer(); });
+  audio.addEventListener('ended', function(){ flushListened(); stopTimer(); });
+  window.addEventListener('pagehide', flushListened);
+  document.addEventListener('visibilitychange', function(){ if(document.hidden){ flushListened(); } });
+
   // Lock-screen / Control Center metadata on modern Safari (spec 2.3 / 6.1).
   if('mediaSession' in navigator){
     navigator.mediaSession.metadata = new MediaMetadata({
@@ -286,7 +329,11 @@ ${story.note ? `<p class="note">${esc(story.note)}</p>` : ""}
     .then(function(data){
       audio.src = data.stream.url;
       ready=true;
-      if(data.story){ renderStats(data.story.playCount, data.story.durationSec); }
+      if(data.story){
+        if(data.story.playStartedCount!=null){ plays=data.story.playStartedCount; }
+        if(data.story.listenedMs!=null){ listenedMs=data.story.listenedMs; }
+        renderStats(plays, listenedMs);
+      }
       if(data.story && data.story.peaksUrl){
         return fetch(data.story.peaksUrl).then(function(r){ return r.ok?r.json():null; }).then(function(p){ if(p&&p.peaks){ peaks=p.peaks; draw(); } });
       }
