@@ -546,12 +546,74 @@ function _ftAbandon(){ if(_ftFlowActive && !_ftFlowDone && !_ftAbandoned){ _ftAb
   try{ window.addEventListener('pagehide', onHide); document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='hidden') onHide(); }); }catch(e){}
 })();
 
-/* ===== local demo store (fallback) ===== */
+/* ===== local persistent store =====
+   window.storage only exists inside the authoring preview sandbox; on foxtales.app
+   it is undefined, so everything below has to survive on its own. IndexedDB is the
+   real home (room for base64 audio, and it outlives a reload / a discarded tab / a
+   browser restart), localStorage is the small-value fallback, mem{} the last resort. */
 const SHARED=true,mem={};
 const hasStore=typeof window!=='undefined'&&window.storage&&typeof window.storage.get==='function';
-async function dbGet(k){if(hasStore){try{const r=await window.storage.get(k,SHARED);return r?r.value:(k in mem?mem[k]:null);}catch(e){return (k in mem)?mem[k]:null;}}return (k in mem)?mem[k]:null;}
-async function dbSet(k,v){if(hasStore){try{await window.storage.set(k,v,SHARED);}catch(e){}}mem[k]=v;return true;}
-async function dbDel(k){if(hasStore){try{await window.storage.delete(k,SHARED);}catch(e){}}delete mem[k];}
+
+const FT_DB='foxtales',FT_KV='kv',FT_BLOBS='blobs';
+let _ftIdbOk=true;   // flipped off the first time IndexedDB refuses us (Safari private mode, quota, …)
+let _ftDbP=null;
+function ftDB(){
+  if(_ftDbP)return _ftDbP;
+  _ftDbP=new Promise(function(res,rej){
+    let rq;
+    try{ if(!window.indexedDB)throw new Error('no_indexeddb'); rq=indexedDB.open(FT_DB,1); }
+    catch(e){ rej(e); return; }
+    rq.onupgradeneeded=function(){ const db=rq.result;
+      if(!db.objectStoreNames.contains(FT_KV))db.createObjectStore(FT_KV);
+      if(!db.objectStoreNames.contains(FT_BLOBS))db.createObjectStore(FT_BLOBS);
+    };
+    rq.onsuccess=function(){ res(rq.result); };
+    rq.onerror=function(){ rej(rq.error||new Error('idb_open_failed')); };
+    rq.onblocked=function(){ rej(new Error('idb_blocked')); };
+  });
+  _ftDbP.catch(function(){});   // callers all try/catch; don't spam the console with an unhandled rejection
+  return _ftDbP;
+}
+/* resolves on tx.oncomplete, not request.onsuccess — so an awaited write really is on disk */
+function ftIdbRun(store,mode,fn){
+  return ftDB().then(function(db){
+    return new Promise(function(res,rej){
+      let tx;
+      try{ tx=db.transaction(store,mode); }catch(e){ rej(e); return; }
+      let out; const rq=fn(tx.objectStore(store));
+      if(rq)rq.onsuccess=function(){ out=rq.result; };
+      tx.oncomplete=function(){ res(out); };
+      tx.onabort=tx.onerror=function(){ rej(tx.error||new Error('idb_tx_failed')); };
+    });
+  });
+}
+function _lsGet(k){try{return localStorage.getItem(k);}catch(e){return null;}}
+function _lsSet(k,v){try{localStorage.setItem(k,v);return true;}catch(e){return false;}}
+function _lsDel(k){try{localStorage.removeItem(k);}catch(e){}}
+function _kvKey(k,shared){return shared?k:'p:'+k;}
+async function ftKvGet(k,shared){
+  const kk=_kvKey(k,shared);
+  if(hasStore){try{const r=await window.storage.get(k,shared);if(r)return r.value;}catch(e){}}
+  if(_ftIdbOk){try{const v=await ftIdbRun(FT_KV,'readonly',function(s){return s.get(kk);});if(v!=null)return v;}catch(e){_ftIdbOk=false;}}
+  const ls=_lsGet(kk); if(ls!=null)return ls;
+  return (k in mem)?mem[k]:null;
+}
+async function ftKvSet(k,v,shared){
+  const kk=_kvKey(k,shared); mem[k]=v;
+  if(hasStore){try{await window.storage.set(k,v,shared);}catch(e){}}
+  if(_ftIdbOk){try{await ftIdbRun(FT_KV,'readwrite',function(s){return s.put(v,kk);});return true;}catch(e){_ftIdbOk=false;}}
+  _lsSet(kk,v);   /* ~5MB ceiling, so a draft with audio in it simply won't fit here */
+  return true;
+}
+async function ftKvDel(k,shared){
+  const kk=_kvKey(k,shared); delete mem[k];
+  if(hasStore){try{await window.storage.delete(k,shared);}catch(e){}}
+  if(_ftIdbOk){try{await ftIdbRun(FT_KV,'readwrite',function(s){return s.delete(kk);});}catch(e){_ftIdbOk=false;}}
+  _lsDel(kk);
+}
+async function dbGet(k){return ftKvGet(k,SHARED);}
+async function dbSet(k,v){return ftKvSet(k,v,SHARED);}
+async function dbDel(k){return ftKvDel(k,SHARED);}
 const IDXK='sn_index_v4';
 
 /* ===== shared helpers ===== */
@@ -1103,9 +1165,9 @@ async function setIndex(i){/* legacy whole-index write — superseded by targete
 
 /* ---------- draft autosave (resumable) ---------- */
 const DRAFTK='sn_draft_v1';
-async function dbGetP(k){if(hasStore){try{const r=await window.storage.get(k,false);return r?r.value:(k in mem?mem[k]:null);}catch(e){return (k in mem)?mem[k]:null;}}return (k in mem)?mem[k]:null;}
-async function dbSetP(k,v){if(hasStore){try{await window.storage.set(k,v,false);}catch(e){}}mem[k]=v;return true;}
-async function dbDelP(k){if(hasStore){try{await window.storage.delete(k,false);}catch(e){}}delete mem[k];}
+async function dbGetP(k){return ftKvGet(k,false);}
+async function dbSetP(k,v){return ftKvSet(k,v,false);}
+async function dbDelP(k){return ftKvDel(k,false);}
 function draftHasContent(){return !!(draft&&((draft.story&&draft.story.length)||draft.intro||draft.outro||(draft.title||'').trim()||(draft.name||'').trim()));}
 let _dsT=null,_dsWarned=false;
 function saveDraftSoon(){clearTimeout(_dsT);_dsT=setTimeout(saveDraftNow,500);}
@@ -1115,30 +1177,122 @@ async function saveDraftNow(){
     if(!draftHasContent()){await dbDelP(DRAFTK);return;}
     const d=Object.assign({},draft);delete d.practice;
     const s=JSON.stringify({draft:d,wizStep:wizStep,t:Date.now()});
-    if(s.length>4500000){if(!_dsWarned){toast('Draft too big to autosave \u2014 finish soon!');_dsWarned=true;}return;}
+    /* IndexedDB has room for a whole story; the localStorage fallback does not */
+    if(s.length>(_ftIdbOk?40000000:4500000)){if(!_dsWarned){toast('Draft too big to autosave \u2014 finish soon!');_dsWarned=true;}return;}
     await dbSetP(DRAFTK,s);
   }catch(e){}
 }
-async function clearDraftStore(){clearTimeout(_dsT);await dbDelP(DRAFTK);}
+async function clearDraftStore(){clearTimeout(_dsT);await dbDelP(DRAFTK);await liveClear();}
+/* a timed-out tab never gets to run anything on the way out, but a backgrounded or
+   closed one does \u2014 flush the debounced save instead of losing the last 500ms */
+function flushDraft(){ if(_dsT){clearTimeout(_dsT);_dsT=null;} try{saveDraftNow();}catch(e){} }
+try{
+  window.addEventListener('pagehide',flushDraft);
+  document.addEventListener('visibilitychange',function(){if(document.visibilityState==='hidden')flushDraft();});
+}catch(e){}
+
+/* ---------- in-progress take autosave ----------
+   MediaRecorder runs with a timeslice so chunks arrive every few seconds, and each
+   one is appended to IndexedDB as it lands. If the browser times out, discards the
+   tab, or is killed mid-sentence, the next visit stitches the chunks back into a
+   take instead of losing the read. Needs IndexedDB for blob storage; where that is
+   unavailable, finished takes still autosave \u2014 only the in-flight one is at risk. */
+const LIVE_SLICE_MS=3000, LIVE_META='live_meta';
+let _liveOn=false,_liveN=0,_liveMeta=null;
+function _liveKey(n){return 'c'+String(n).padStart(6,'0');}
+async function liveBegin(slot,mime,extra){
+  _liveOn=false;_liveN=0;
+  const meta=Object.assign({slot:slot,mime:mime||'audio/webm',n:0,secs:0,t:Date.now()},extra||{});
+  if(!_ftIdbOk)return;
+  try{
+    await ftIdbRun(FT_BLOBS,'readwrite',function(s){s.clear();s.put(meta,LIVE_META);return null;});
+    _liveMeta=meta;_liveOn=true;
+  }catch(e){_ftIdbOk=false;}
+}
+async function liveChunk(blob,secs){
+  if(!_liveOn||!blob||!blob.size)return;
+  const n=++_liveN, meta=Object.assign({},_liveMeta,{n:n,secs:secs});
+  try{
+    await ftIdbRun(FT_BLOBS,'readwrite',function(s){s.put(blob,_liveKey(n));s.put(meta,LIVE_META);return null;});
+    _liveMeta=meta;
+  }catch(e){_liveOn=false;}   // out of quota mid-take: keep recording, just stop mirroring
+}
+/* a finished-but-unconfirmed take (guided mode's "hear it / redo / save" screen) */
+async function livePending(slot,blob,secs,extra){
+  if(!_ftIdbOk||!blob||!blob.size)return;
+  const meta=Object.assign({slot:slot,mime:blob.type||'audio/webm',n:1,secs:secs||0,t:Date.now()},extra||{});
+  try{ await ftIdbRun(FT_BLOBS,'readwrite',function(s){s.clear();s.put(meta,LIVE_META);s.put(blob,_liveKey(1));return null;}); }
+  catch(e){_ftIdbOk=false;}
+}
+async function liveClear(){
+  _liveOn=false;_liveN=0;_liveMeta=null;
+  if(!_ftIdbOk)return;
+  try{ await ftIdbRun(FT_BLOBS,'readwrite',function(s){return s.clear();}); }catch(e){}
+}
+async function livePeek(){
+  if(!_ftIdbOk)return null;
+  try{
+    const m=await ftIdbRun(FT_BLOBS,'readonly',function(s){return s.get(LIVE_META);});
+    return (m&&m.n>0&&m.slot!=='practice')?m:null;
+  }catch(e){_ftIdbOk=false;return null;}
+}
+/* destructive: hands back the stitched take and empties the store */
+async function liveRecover(){
+  if(!_ftIdbOk)return null;
+  let meta=null,parts=null;
+  try{
+    meta=await ftIdbRun(FT_BLOBS,'readonly',function(s){return s.get(LIVE_META);});
+    if(!meta)return null;
+    /* zero-padded keys, so IndexedDB's key order is chunk order */
+    parts=await ftIdbRun(FT_BLOBS,'readonly',function(s){return s.getAll(IDBKeyRange.bound('c','c\uFFFF'));});
+  }catch(e){_ftIdbOk=false;return null;}
+  await liveClear();
+  if(meta.slot==='practice')return null;            // practice takes are throwaway by design
+  if(!parts||!parts.length)return null;
+  let blob;try{blob=new Blob(parts,{type:meta.mime||'audio/webm'});}catch(e){return null;}
+  if(blob.size<8*1024)return null;                  // a stray opening fragment, not a real take
+  let d;try{d=await b2d(blob);}catch(e){return null;}
+  return {slot:meta.slot||'story',page:meta.page,
+          take:{dataUrl:d,mime:blob.type,secs:meta.secs||0,k:'t'+Date.now()+Math.floor(Math.random()*999),recovered:true}};
+}
+
 function storedDraftHasContent(d){return !!(d&&d.draft&&((d.draft.story&&d.draft.story.length)||d.draft.intro||d.draft.outro||(d.draft.title||'').trim()));}
 async function updateResumeBar(){
   const el=document.getElementById('resumeBar'); if(!el)return;
   let raw=await dbGetP(DRAFTK); let d=null;
   try{d=raw?JSON.parse(raw):null;}catch(e){d=null;}
-  if(!storedDraftHasContent(d)){el.innerHTML='';return;}
-  const np=(d.draft.story||[]).length;
-  const bits=[];if(np)bits.push(np+' part'+(np>1?'s':''));if((d.draft.title||'').trim())bits.push('\u201C'+esc(d.draft.title.trim())+'\u201D');
-  el.innerHTML='<div class="card resume"><div style="flex:1"><b>\uD83D\uDC4B Welcome back!</b> You have a story in progress'+(bits.length?(' \u2014 '+bits.join(' of ')):'')+'.</div><div class="resumebtns"><button class="btn sm" onclick="resumeDraft()">Resume</button><button class="btn ghost sm" onclick="discardDraft()">Discard</button></div></div>';
+  const live=await livePeek();
+  if(!storedDraftHasContent(d)&&!live){el.innerHTML='';return;}
+  const np=((d&&d.draft&&d.draft.story)||[]).length;
+  const bits=[];if(np)bits.push(np+' part'+(np>1?'s':''));if(d&&d.draft&&(d.draft.title||'').trim())bits.push('\u201C'+esc(d.draft.title.trim())+'\u201D');
+  const tail=live?' We even kept the clip you were part-way through.':'';
+  el.innerHTML='<div class="card resume"><div style="flex:1"><b>\uD83D\uDC4B Welcome back!</b> You have a story in progress'+(bits.length?(' \u2014 '+bits.join(' of ')):'')+'.'+tail+'</div><div class="resumebtns"><button class="btn sm" onclick="resumeDraft()">Resume</button><button class="btn ghost sm" onclick="discardDraft()">Discard</button></div></div>';
 }
-async function resumeDraft(){
-  const raw=await dbGetP(DRAFTK); if(!raw){toast('Draft not found');return;}
-  let d;try{d=JSON.parse(raw);}catch(e){toast('Draft not found');return;}
+async function resumeDraft(pre,rec){
+  if(rec===undefined)rec=await liveRecover();
+  let d=pre;
+  if(!d){const raw=await dbGetP(DRAFTK);try{d=raw?JSON.parse(raw):null;}catch(e){d=null;}}
+  if(!storedDraftHasContent(d)&&!rec){toast('Draft not found');return;}
+  d=d||{};
   draft=Object.assign({title:'',author:'',name:'',note:'',practice:null,intro:null,story:[],outro:null,chime:'sfx:double_pop',storyMode:null,storyId:null},d.draft||{});
   if(!Array.isArray(draft.story))draft.story=draft.story?[draft.story]:[];
   draft.story.forEach(function(pp){if(!pp.k)pp.k='t'+Date.now()+Math.floor(Math.random()*9999);});
-  wizStep=Math.min(4,Math.max(1,(typeof d.wizStep==='number')?d.wizStep:2));
-  _ftFlowActive=true;_ftFlowDone=false;_ftAbandoned=false;track('flow_started',{resumed:true});track('draft_resumed',{});
-  lastDir=1;showView('record');renderWizard();toast('Picking up where you left off');
+  if(rec&&rec.take){
+    if(rec.slot==='story'||rec.slot==='guided'){
+      if(typeof rec.page==='number'){
+        rec.take.page=rec.page;
+        const ex=draft.story.findIndex(function(t){return t.page===rec.page;});
+        if(ex>=0)draft.story[ex]=rec.take; else draft.story.push(rec.take);
+        draft.story.sort(function(a,b){return (a.page==null?999:a.page)-(b.page==null?999:b.page);});
+      }else draft.story.push(rec.take);
+    }else draft[rec.slot]=rec.take;
+  }
+  const recStep=rec?Math.max(1,STAGES.indexOf(rec.slot==='guided'?'story':rec.slot)):-1;
+  wizStep=Math.min(4,Math.max(1,(typeof d.wizStep==='number')?d.wizStep:(recStep>0?recStep:2)));
+  _ftFlowActive=true;_ftFlowDone=false;_ftAbandoned=false;track('flow_started',{resumed:true});track('draft_resumed',{recovered_take:!!rec});
+  lastDir=1;showView('record');renderWizard();
+  if(rec)await saveDraftNow();   // fold the rescued clip into the saved draft straight away
+  toast(rec?'Recovered the clip you were recording \u2713':'Picking up where you left off');
 }
 async function discardDraft(){track('draft_discarded',{});await clearDraftStore();updateResumeBar();toast('Draft discarded');}
 
@@ -1162,8 +1316,10 @@ function showView(v){
   window.scrollTo({top:0,behavior:'auto'});
 }
 async function startFlow(){
+  const rec=await liveRecover();   // a take the browser cut off last time, if any
   const raw=await dbGetP(DRAFTK);
-  if(raw){try{const d=JSON.parse(raw);if(storedDraftHasContent(d)){resumeDraft();return;}}catch(e){}}
+  let d=null; if(raw){try{d=JSON.parse(raw);}catch(e){d=null;}}
+  if(storedDraftHasContent(d)||rec){resumeDraft(d,rec);return;}
   _ftFlowActive=true;_ftFlowDone=false;_ftAbandoned=false;track('flow_started',{resumed:false});
   draft={title:'',author:'',name:'',note:'',practice:null,intro:null,story:[],outro:null,chime:'sfx:double_pop',storyMode:null,storyId:null};
   wizStep=0;lastDir=1;showView('record');renderWizard();
@@ -1537,7 +1693,8 @@ async function toggleRec(slot){
 function beginRecording(slot){
   const stream=recStream; if(!stream)return;
   const m=pickMime(); mr=m?new MediaRecorder(stream,{mimeType:m}):new MediaRecorder(stream); chunks=[];
-  mr.ondataavailable=e=>{if(e.data.size>0)chunks.push(e.data);};
+  liveBegin(slot,mr.mimeType||m||'audio/webm');
+  mr.ondataavailable=e=>{if(e.data&&e.data.size>0){chunks.push(e.data);liveChunk(e.data,Math.round((Date.now()-rs)/100)/10);}};
   mr.onstop=async()=>{
     stopWave();
     const blob=new Blob(chunks,{type:mr.mimeType||'audio/webm'});
@@ -1545,7 +1702,7 @@ function beginRecording(slot){
     track('record_stopped',{slot:slot, duration_sec:secs, take_index: slot==='story'?draft.story.length:0});
     try{stream.getTracks().forEach(t=>t.stop());}catch(e){}
     recStream=null;
-    if(blob.size>6*1024*1024){toast('That take is long for the demo \u2014 try a shorter clip');return;}
+    if(blob.size>6*1024*1024){await liveClear();toast('That take is long for the demo \u2014 try a shorter clip');return;}
     const d=await b2d(blob);
     const take={dataUrl:d,mime:blob.type,secs:secs,k:'t'+Date.now()+Math.floor(Math.random()*999)};
     if(slot==='story'){
@@ -1561,9 +1718,10 @@ function beginRecording(slot){
       const h2=document.getElementById('hint_'+slot);if(h2)h2.textContent=(slot==='practice')?'How do you sound? \uD83D\uDC42':'Tap to re-record';
       if(slot==='practice')playTake(take.k,null);
     }
-    saveDraftSoon();
+    await saveDraftNow();   // the take is in the draft now, so the live chunks can go
+    await liveClear();
   };
-  mr.start(); rs=Date.now();
+  rs=Date.now(); mr.start(LIVE_SLICE_MS);
   track('record_started',{slot:slot, take_index: slot==='story'?draft.story.length:0});
   const b=document.getElementById('recBtn_'+slot); if(b){b.classList.add('recording');b.innerHTML=STOP_SVG;}
   const h=document.getElementById('hint_'+slot); if(h)h.textContent='Recording\u2026 tap to stop';
@@ -2389,9 +2547,10 @@ async function guidedStartRec(){
   const m=pickMime();
   try{ G.mr=m?new MediaRecorder(stream,{mimeType:m}):new MediaRecorder(stream); }
   catch(e){ G.mr=new MediaRecorder(stream); }
-  G.mr.ondataavailable=function(e){ if(e.data&&e.data.size>0)G.chunks.push(e.data); };
+  liveBegin('guided',G.mr.mimeType||m||'audio/webm',{page:G.idx});
+  G.mr.ondataavailable=function(e){ if(e.data&&e.data.size>0){ G.chunks.push(e.data); liveChunk(e.data,Math.round((Date.now()-G.rs)/100)/10); } };
   G.mr.onstop=guidedOnStop;
-  G.mr.start(); G.rs=Date.now(); G.recording=true;
+  G.rs=Date.now(); G.mr.start(LIVE_SLICE_MS); G.recording=true;
   const b=document.getElementById('recBtn_guided'); if(b){ b.classList.add('recording'); b.innerHTML=STOP_SVG; }
   const h=document.getElementById('hint_guided'); if(h)h.textContent='Reading… tap the square when you reach the end';
   updateLights();
@@ -2444,6 +2603,9 @@ async function guidedOnStop(){
   if(blob.size>6*1024*1024){ toast('That take is long for the demo — try a shorter page'); }
   let d; try{ d=await b2d(blob); }catch(e){ toast('Could not save that take'); return; }
   G.lastTake={dataUrl:d,mime:blob.type,secs:secs,k:'t'+Date.now()+Math.floor(Math.random()*999),page:G.idx};
+  /* keep it parked in IndexedDB until the reader confirms it — the confirm screen
+     is otherwise the one place a finished take exists nowhere but memory */
+  livePending('guided',blob,secs,{page:G.idx});
   G.phase='confirm'; lastDir=1; renderWizard();
 }
 
@@ -2460,14 +2622,14 @@ function guidedPlay(btn){
     G.audio.play().then(function(){ setHearBtn(btn,true); }).catch(function(){ toast('Could not play that take'); });
   }catch(e){ toast('Could not play that take'); }
 }
-function guidedRedo(){ if(G.audio){try{G.audio.pause();}catch(e){}} G.lastTake=null;G.matched=0;G.base=0;G.completing=false;G.phase='record'; lastDir=-1; renderWizard(); }
+function guidedRedo(){ if(G.audio){try{G.audio.pause();}catch(e){}} liveClear(); G.lastTake=null;G.matched=0;G.base=0;G.completing=false;G.phase='record'; lastDir=-1; renderWizard(); }
 function guidedSaveTake(pageIdx,take){
   take.page=pageIdx;
   const ex=draft.story.findIndex(t=>t.page===pageIdx);
   if(ex>=0){ const old=draft.story[ex]; if(old&&old.k)delete _bufCache['draft_'+old.k]; draft.story[ex]=take; }
   else draft.story.push(take);
   draft.story.sort(function(a,b){ return (a.page==null?999:a.page)-(b.page==null?999:b.page); });
-  saveDraftSoon();
+  saveDraftNow().then(liveClear);   // safely in the draft, so drop the parked copy
 }
 function guidedConfirm(){
   if(!G.lastTake){ toast('Record this page first'); return; }
