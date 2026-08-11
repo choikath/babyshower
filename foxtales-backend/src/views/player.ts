@@ -62,8 +62,10 @@ body{
 .wave-wrap input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:2px; height:74px; background:transparent}
 .wave-wrap input[type=range]::-moz-range-thumb{width:2px; height:74px; border:0; background:transparent}
 .times{display:flex; justify-content:space-between; font-size:12.5px; color:var(--muted); font-variant-numeric:tabular-nums; letter-spacing:.02em}
-.transport{display:flex; align-items:center; justify-content:center; margin-top:22px}
+/* three columns so the play button stays optically centred with repeat beside it */
+.transport{display:grid; grid-template-columns:1fr auto 1fr; align-items:center; margin-top:22px}
 .pp{
+  grid-column:2;
   width:66px; height:66px; border-radius:50%; border:1.5px solid var(--brass);
   background:var(--bg); color:var(--ink); display:grid; place-items:center; cursor:pointer;
   transition:background .15s ease;
@@ -71,6 +73,19 @@ body{
 .pp:hover{background:var(--paper)}
 .pp:focus-visible{outline:2px solid var(--brass); outline-offset:4px}
 .pp svg{width:24px; height:24px; display:block}
+.rp{
+  grid-column:3; justify-self:start; margin-left:18px;
+  width:44px; height:44px; border-radius:50%; border:1px solid var(--hairline-dark);   /* 44px = min tap target */
+  background:transparent; color:var(--muted); display:grid; place-items:center; cursor:pointer;
+  transition:background .15s ease, color .15s ease, border-color .15s ease;
+}
+.rp:hover{background:var(--paper); color:var(--ink)}
+.rp:focus-visible{outline:2px solid var(--brass); outline-offset:4px}
+.rp svg{width:19px; height:19px; display:block}
+.rp .dot{opacity:0; transition:opacity .15s ease}
+/* on: brass, with the centre dot lit the way a repeat-one control reads */
+.rp[aria-pressed="true"]{border-color:var(--brass); color:var(--brass-deep); background:var(--paper)}
+.rp[aria-pressed="true"] .dot{opacity:1}
 .hint{text-align:center; font-size:12px; color:var(--muted); letter-spacing:.04em; margin:18px 0 0}
 .stats{margin-top:26px; text-align:center; font-size:11.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); font-variant-numeric:tabular-nums}
 .foot{margin-top:30px; padding-top:18px; border-top:1px solid var(--hairline); font-size:11px; letter-spacing:.22em; text-transform:uppercase; color:var(--brass-deep)}
@@ -158,6 +173,13 @@ ${story.note ? `<p class="note">${esc(story.note)}</p>` : ""}
   <div class="transport">
     <button id="pp" class="pp" aria-label="Play">
       <svg id="ic" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+    </button>
+    <button id="rp" class="rp" aria-pressed="false" aria-label="Repeat off" title="Repeat">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M17 2.5l3.5 3.5L17 9.5"/><path d="M3.5 11.5V10a4 4 0 0 1 4-4h13"/>
+        <path d="M7 21.5L3.5 18 7 14.5"/><path d="M20.5 12.5V14a4 4 0 0 1-4 4h-13"/>
+        <circle class="dot" cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/>
+      </svg>
     </button>
   </div>
   <p class="hint" id="hint">Tap play to begin</p>
@@ -273,6 +295,20 @@ ${story.note ? `<p class="note">${esc(story.note)}</p>` : ""}
     if(!ready) return;
     if(audio.paused){ audio.play(); } else { audio.pause(); }
   });
+
+  // Repeat: play the story again from the top, over and over, until it is paused.
+  // audio.loop does the looping natively, which also means 'ended' stops firing
+  // while it is on — so the pause icon correctly stays put across each repeat.
+  var rp=document.getElementById('rp');
+  var HINT_IDLE='Tap play to begin', HINT_LOOP='Repeat is on — it will keep playing until you pause.';
+  function setRepeat(on){
+    audio.loop=on;
+    rp.setAttribute('aria-pressed', on?'true':'false');
+    rp.setAttribute('aria-label', on?'Repeat on':'Repeat off');
+    rp.setAttribute('title', on?'Repeat on':'Repeat');
+    if(ready && hint.style.visibility!=='hidden') hint.textContent = on?HINT_LOOP:HINT_IDLE;
+  }
+  rp.addEventListener('click', function(){ setRepeat(!audio.loop); });
   audio.addEventListener('play', function(){ ic.querySelector('path').setAttribute('d', ICON_PAUSE); pp.setAttribute('aria-label','Pause'); hint.style.visibility='hidden'; });
   audio.addEventListener('pause', function(){ ic.querySelector('path').setAttribute('d', ICON_PLAY); pp.setAttribute('aria-label','Play'); });
   audio.addEventListener('timeupdate', onTime);
