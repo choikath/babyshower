@@ -1,2 +1,5 @@
 # macOS Finder junk
 .DS_Store
+
+# Local Claude Code dev-server config (machine-specific; not part of the project)
+.claude/launch.json
