@@ -124,12 +124,18 @@ ${inner}
 </html>`;
 }
 
+/** Voice-note reply CTA — hidden (parity with the club player, 2026-08-13)
+ *  until the note flow earns its keep here; flip back on to re-show it. */
+const VOICE_NOTE_CTA = false;
+
 export interface PlayerStory {
   title: string;
   author: string | null;
   fromName: string;
   note: string | null;
   durationSec: number | null;
+  /** Branded-mix map — bookStart anchors the skip-intro button. */
+  timeline?: { greetStart?: number; bookStart: number; bookEnd?: number; total?: number } | null;
   playStartedCount: number; // real plays (audio 'play' event)
   listenedMs: number; // true measured listening time
 }
@@ -183,15 +189,16 @@ ${story.note ? `<p class="note">${esc(story.note)}</p>` : ""}
     </button>
   </div>
   <p class="hint" id="hint">Tap play to begin</p>
+  <button id="skipIntro" class="skipintro" style="display:none;border:1px solid rgba(38,35,30,.22);background:none;border-radius:20px;padding:7px 16px;margin:10px auto 0;font-size:13px;color:#26231E;cursor:pointer">↷ Skip to the story</button>
 </section>
 
-<section class="ft-cta" aria-label="Send a voice note back">
+${VOICE_NOTE_CTA ? `<section class="ft-cta" aria-label="Send a voice note back">
   <p class="lead">Add your voice</p>
   <a class="ft-btn ft-btn-ghost" id="noteCta" href="${noteHref}">
     <svg viewBox="0 0 24 24" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15a4 4 0 0 0 4-4V6a4 4 0 1 0-8 0v5a4 4 0 0 0 4 4z"/><path d="M18 11a6 6 0 0 1-12 0H4a8 8 0 0 0 7 7.94V22H8.5v2h7v-2H13v-3.06A8 8 0 0 0 20 11h-2z"/></svg>
     <span>Record a voice note for ${esc(story.fromName)}</span>
   </a>
-</section>
+</section>` : ""}
 
 <p class="stats" id="stats"${statsLine(story.playStartedCount, story.listenedMs) ? "" : " hidden"}>${esc(statsLine(story.playStartedCount, story.listenedMs))}</p>
 
@@ -309,6 +316,23 @@ ${story.note ? `<p class="note">${esc(story.note)}</p>` : ""}
     if(ready && hint.style.visibility!=='hidden') hint.textContent = on?HINT_LOOP:HINT_IDLE;
   }
   rp.addEventListener('click', function(){ setRepeat(!audio.loop); });
+
+  // Skip-intro (ported from the club player): shown only when the story row
+  // carries a timeline map. Lands 5s shy of the first page so the jump has a
+  // little run-in instead of a hard cut. No beacon — this schema has no
+  // skip-intro counter. Native audio.loop still restarts repeats from 0:00.
+  var TL=${JSON.stringify(story.timeline ?? null)};
+  var skipBtn=document.getElementById('skipIntro');
+  var canSkip = TL && TL.bookStart>3;
+  var SKIP_TO = TL ? Math.max(0, TL.bookStart-5) : 0;
+  function showSkip(label){ if(!skipBtn||!canSkip) return; skipBtn.textContent=label; skipBtn.style.display='block'; }
+  if(canSkip) showSkip('↷ Skip to the story');
+  if(skipBtn) skipBtn.addEventListener('click', function(){
+    if(!canSkip) return;
+    if(skipBtn._full){ audio.currentTime=0; skipBtn._full=false; showSkip('↷ Skip to the story'); if(audio.paused&&ready)audio.play(); return; }
+    audio.currentTime=SKIP_TO; skipBtn._full=true; showSkip('⟲ Play the full intro'); if(audio.paused&&ready)audio.play();
+  });
+
   audio.addEventListener('play', function(){ ic.querySelector('path').setAttribute('d', ICON_PAUSE); pp.setAttribute('aria-label','Pause'); hint.style.visibility='hidden'; });
   audio.addEventListener('pause', function(){ ic.querySelector('path').setAttribute('d', ICON_PLAY); pp.setAttribute('aria-label','Play'); });
   audio.addEventListener('timeupdate', onTime);

@@ -67,6 +67,7 @@ export class MemoryRepo implements Repo {
       author: input.author ?? null,
       note: input.note ?? null,
       durationSec: null,
+      timeline: null,
       parts: input.parts,
       audioKey: null,
       peaksKey: null,

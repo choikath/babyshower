@@ -33,6 +33,8 @@ export interface Story {
   author: string | null;
   note: string | null;
   durationSec: number | null;
+  /** Branded-mix map (matches the club backend) — bookStart anchors skip-intro. */
+  timeline: { version?: number; greetStart?: number; bookStart: number; bookEnd?: number; total?: number } | null;
   parts: number;
   audioKey: string | null;
   peaksKey: string | null;

@@ -10,6 +10,7 @@ const toMembership = (r: any): Membership => ({ familyId: r.family_id, userId: r
 const toStory = (r: any): Story => ({
   id: r.id, familyId: r.family_id, fromName: r.from_name, fromUserId: r.from_user_id,
   title: r.title, author: r.author, note: r.note, durationSec: r.duration_sec === null ? null : Number(r.duration_sec),
+  timeline: r.timeline ?? null,
   parts: r.parts, audioKey: r.audio_key, peaksKey: r.peaks_key, status: r.status as StoryStatus,
   inBedtime: r.in_bedtime, bedtimeOrder: r.bedtime_order, playCount: r.play_count,
   playStartedCount: r.play_started_count ?? 0,
