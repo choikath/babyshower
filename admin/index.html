@@ -1639,6 +1639,7 @@ function flyAway(){
 }
 function youDidIt(){
   setCrumbsDone();
+  stopMic();   /* story's away — hand the mic back rather than holding it on the done screen */
   _ftFlowDone=true; track('success_viewed',{story_id:(lastTrack&&lastTrack.id)||undefined, parts:(lastTrack&&lastTrack.parts)||undefined});
   var _ydIsVN = false;   // legacy voice-note completion screen retired; memos finish in the backend recorder
   var _backBtn = STORYTELLER ? '<button class="rr-tap linklike" onclick="track(\'record_another\',{});startFlow()">Record another \u2192</button>' : '<button class="rr-tap linklike" onclick="showView(\'parent\')">Back to the playlist \u2192</button>';
@@ -1658,6 +1659,7 @@ function youDidIt(){
 
 /* ---------- recording engine (countdown + live waveform + chunked story) ---------- */
 let mr=null,chunks=[],rt=null,rs=0,recSlot=null,recStream=null;
+let _userStopped=false;   // did the reader tap stop, or did the OS end the recording for us?
 let cdT=null;
 let ana=null,anaSrc=null,anaRAF=null,heardSig=false,anaT0=0;
 function pickMime(){if(window.MediaRecorder){if(MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported('audio/webm'))return'audio/webm';if(MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported('audio/mp4'))return'audio/mp4';}return'';}
@@ -1666,7 +1668,7 @@ function cancelCountdown(){if(cdT){clearTimeout(cdT);cdT=null;}}
 async function toggleRec(slot){
   if(cdT&&recSlot===slot){
     cancelCountdown();
-    if(recStream){try{recStream.getTracks().forEach(t=>t.stop());}catch(e){}recStream=null;}
+    recStream=null;   /* just let go of the reference — the mic stays warm for the next take */
     const b=document.getElementById('recBtn_'+slot);if(b){b.classList.remove('counting');b.innerHTML=MIC_SVG;}
     const h=document.getElementById('hint_'+slot);if(h)h.textContent='Tap to record';
     return;
@@ -1674,7 +1676,11 @@ async function toggleRec(slot){
   if(mr&&mr.state==='recording'){stopRec();return;}
   recSlot=slot;
   let stream;
-  try{ stream=await navigator.mediaDevices.getUserMedia({audio:true}); }
+  /* One mic session for the whole flow. getMic() hands back the live stream it
+     already holds, and only asks the browser again if the track has actually died
+     (the OS reclaimed it while the tab was away). Re-requesting per take made the
+     mic indicator flicker and, on iOS, could put the permission prompt back up. */
+  try{ stream=await getMic(); }
   catch(err){ track('mic_permission_denied',{slot:slot}); const h=document.getElementById('hint_'+slot); if(h)h.textContent='\uD83C\uDFA4 Mic blocked here \u2014 tap \u201Cor upload a file\u201D below.'; return; }
   track('mic_permission_granted',{slot:slot});
   recStream=stream;
@@ -1697,11 +1703,18 @@ function beginRecording(slot){
   mr.ondataavailable=e=>{if(e.data&&e.data.size>0){chunks.push(e.data);liveChunk(e.data,Math.round((Date.now()-rs)/100)/10);}};
   mr.onstop=async()=>{
     stopWave();
+    /* The recorder also stops on its own when the OS takes the mic away — an
+       incoming call, another app grabbing the input, the tab being frozen. In
+       that case nobody ran stopRec(), so reset the transport here: otherwise the
+       button sits on "stop" and the timer keeps ticking over a dead recorder. */
+    clearInterval(rt);
+    const _rb=document.getElementById('recBtn_'+slot);
+    if(_rb){ _rb.classList.remove('recording','counting'); _rb.innerHTML=MIC_SVG; }
+    const interrupted=!_userStopped; _userStopped=false;
     const blob=new Blob(chunks,{type:mr.mimeType||'audio/webm'});
     const secs=Math.round((Date.now()-rs)/100)/10;
     track('record_stopped',{slot:slot, duration_sec:secs, take_index: slot==='story'?draft.story.length:0});
-    try{stream.getTracks().forEach(t=>t.stop());}catch(e){}
-    recStream=null;
+    recStream=null;   /* the take is done, but hold the mic open for the next part */
     if(blob.size>6*1024*1024){await liveClear();toast('That take is long for the demo \u2014 try a shorter clip');return;}
     const d=await b2d(blob);
     const take={dataUrl:d,mime:blob.type,secs:secs,k:'t'+Date.now()+Math.floor(Math.random()*999)};
@@ -1720,6 +1733,10 @@ function beginRecording(slot){
     }
     await saveDraftNow();   // the take is in the draft now, so the live chunks can go
     await liveClear();
+    if(interrupted){
+      track('record_interrupted',{slot:slot, duration_sec:secs});
+      toast('Something interrupted the mic — we saved what you’d recorded ✓');
+    }
   };
   rs=Date.now(); mr.start(LIVE_SLICE_MS);
   track('record_started',{slot:slot, take_index: slot==='story'?draft.story.length:0});
@@ -1768,8 +1785,8 @@ function stopWave(){
 }
 function stopRec(){
   cancelCountdown();
-  if(recStream&&!(mr&&mr.state==='recording')){try{recStream.getTracks().forEach(t=>t.stop());}catch(e){}recStream=null;}
-  if(mr&&mr.state&&mr.state!=='inactive'){try{mr.stop();}catch(e){}}
+  if(recStream&&!(mr&&mr.state==='recording')){recStream=null;}   /* keep the mic session; stopMic() releases it on the way out */
+  if(mr&&mr.state&&mr.state!=='inactive'){_userStopped=true;try{mr.stop();}catch(e){}}
   clearInterval(rt);
   stopWave();
   ['practice','intro','story','outro'].forEach(s=>{const b=document.getElementById('recBtn_'+s);if(b){b.classList.remove('recording');b.classList.remove('counting');b.innerHTML=MIC_SVG;}});
@@ -2213,7 +2230,25 @@ async function playBedtime(){
 
 /* ---------- guided read-along: shared mic + image fallback helpers ---------- */
 let micStream=null;
-async function getMic(){if(micStream){var tr=micStream.getAudioTracks()[0];if(tr&&tr.readyState==='live')return micStream;}micStream=await navigator.mediaDevices.getUserMedia({audio:true});return micStream;}
+/* One mic session shared by every recorder and every part. It is requested on the
+   first take and handed back unchanged after that, so the reader approves access
+   once. The OS can still take it away while the tab is backgrounded or a call comes
+   in — the track fires 'ended', we drop the dead stream, and the next take quietly
+   asks for a fresh one (already-granted permission does not re-prompt). */
+async function getMic(){
+  if(micStream){
+    var tr=micStream.getAudioTracks()[0];
+    if(tr&&tr.readyState==='live')return micStream;
+    stopMic();                       // stale/reclaimed — let go before re-asking
+  }
+  micStream=await navigator.mediaDevices.getUserMedia({audio:true});
+  try{
+    micStream.getAudioTracks().forEach(function(t){
+      t.addEventListener('ended',function(){ if(recStream===micStream)recStream=null; micStream=null; });
+    });
+  }catch(e){}
+  return micStream;
+}
 function stopMic(){if(micStream){try{micStream.getTracks().forEach(function(t){t.stop();});}catch(e){}micStream=null;}}
 /* sandbox has no bundled story art — swap broken page images for a quiet book glyph */
 function kImgErr(img){try{const s=document.createElement('span');s.className='kimgfallback';s.textContent='📖';img.replaceWith(s);}catch(e){try{img.style.display='none';}catch(_){}}}
@@ -2597,6 +2632,17 @@ function guidedStopRec(){
   if(G.mr&&G.mr.state&&G.mr.state!=='inactive'){ try{ G.mr.stop(); }catch(e){} } // -> guidedOnStop
 }
 async function guidedOnStop(){
+  /* Same as the free recorder: the mic can be taken away mid-read (a call, another
+     app, the tab freezing) and then nobody ran guidedStopRec(). Tear the transport
+     down here so the timer, the waveform and the recogniser don't keep running. */
+  const interrupted=G.recording;
+  if(interrupted){
+    G.recording=false; G.completing=false;
+    if(G.timer){ clearInterval(G.timer); G.timer=null; }
+    try{ stopWave(); }catch(e){}
+    if(G.recog){ try{ G.recog.onend=null; G.recog.onresult=null; G.recog.abort(); }catch(e){} G.recog=null; }
+    const gb=document.getElementById('recBtn_guided'); if(gb){ gb.classList.remove('recording'); gb.innerHTML=MIC_SVG; }
+  }
   let blob;
   try{ blob=new Blob(G.chunks,{type:(G.mr&&G.mr.mimeType)||'audio/webm'}); }catch(e){ return; }
   const secs=Math.round((Date.now()-G.rs)/100)/10;
@@ -2607,6 +2653,10 @@ async function guidedOnStop(){
      is otherwise the one place a finished take exists nowhere but memory */
   livePending('guided',blob,secs,{page:G.idx});
   G.phase='confirm'; lastDir=1; renderWizard();
+  if(interrupted){
+    track('record_interrupted',{slot:'guided', duration_sec:secs});
+    toast('Something interrupted the mic — we saved what you’d read ✓');
+  }
 }
 
 /* ---------- hear / redo / confirm ---------- */
